@@ -2,12 +2,11 @@ import '@vaadin/vaadin-context-menu'
 import copyToClipboard from 'copy-text-to-clipboard'
 import { Injectable, Inject } from '@angular/core'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
-import { PlatformService, ClipboardContent, MenuItemOptions, MessageBoxOptions, MessageBoxResult, FileUpload, FileUploadOptions, FileDownload, DirectoryDownload, HTMLFileUpload, DirectoryUpload } from 'tabby-core'
+import { PlatformService, ClipboardContent, MenuItemOptions, MessageBoxOptions, MessageBoxResult, MessageBoxModalComponent, FileUpload, FileUploadOptions, FileDownload, DirectoryDownload, HTMLFileUpload, DirectoryUpload } from 'tabby-core'
 
 // eslint-disable-next-line no-duplicate-imports
 import type { ContextMenuElement, ContextMenuItem } from '@vaadin/vaadin-context-menu'
 
-import { MessageBoxModalComponent } from './components/messageBoxModal.component'
 import './styles.scss'
 
 
@@ -93,6 +92,7 @@ export class WebPlatformService extends PlatformService {
     async showMessageBox (options: MessageBoxOptions): Promise<MessageBoxResult> {
         const modal = this.ngbModal.open(MessageBoxModalComponent, {
             backdrop: 'static',
+            keyboard: true,
         })
         const instance: MessageBoxModalComponent = modal.componentInstance
         instance.options = options
