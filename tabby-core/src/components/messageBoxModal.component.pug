@@ -1,0 +1,21 @@
+.modal-header
+    h5.modal-title {{options.message}}
+    button.btn-close(
+        type='button',
+        aria-label='Close',
+        (click)='cancel()',
+    )
+
+.modal-body(*ngIf='options.detail')
+    pre.message-box-detail {{options.detail}}
+
+.modal-footer
+    .ms-auto
+    button.btn(
+        *ngFor='let button of options.buttons; index as i',
+        type='button',
+        [attr.autofocus]='i === options.defaultId ? true : null',
+        [class.btn-primary]='i === options.defaultId',
+        [class.btn-secondary]='i !== options.defaultId',
+        (click)='onButton(i)',
+    ) {{button}}

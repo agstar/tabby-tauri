@@ -1,0 +1,10 @@
+.message-box-detail {
+    max-height: min(50vh, 24rem);
+    margin: 0;
+    overflow-wrap: anywhere;
+    overflow-y: auto;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    white-space: pre-wrap;
+}
