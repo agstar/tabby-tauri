@@ -21,7 +21,7 @@ export class MessageBoxModalComponent implements AfterViewInit {
 
     @HostListener('document:keydown', ['$event'])
     onKeyDown (event: KeyboardEvent): void {
-        if (event.key !== 'Enter' || !this.isValidButtonIndex(this.options?.defaultId)) {
+        if (event.key !== 'Enter' || !this.isValidButtonIndex(this.options.defaultId)) {
             return
         }
         event.preventDefault()
