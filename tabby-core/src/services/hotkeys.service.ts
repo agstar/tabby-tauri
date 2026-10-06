@@ -17,6 +17,7 @@ interface PastKeystroke {
     time: number
 }
 
+const HANDLED_EVENT_NAMES = ['keydown', 'keyup', 'wheel', 'mouseup', 'auxclick']
 @Injectable({ providedIn: 'root' })
 export class HotkeysService {
     /** @hidden @deprecated */
@@ -112,6 +113,11 @@ export class HotkeysService {
      * @param nativeEvent event object
      */
     pushKeyEvent (eventName: string, nativeEvent: KeyboardEvent): void {
+        // Anything else (keypress, most notably) describes a keystroke this already
+        // saw as a keydown, and would match - and so fire - the same hotkey again.
+        if (!HANDLED_EVENT_NAMES.includes(eventName)) {
+            return
+        }
         if (nativeEvent.timeStamp === this.lastEventTimestamp) {
             return
         }

@@ -209,7 +209,10 @@ export class XTermFrontend extends Frontend {
                 return false
             }
 
-            return keyboardEventHandler('keydown', event)
+            // xterm calls this handler for keypress and keyup too, so pass the real
+            // event type - labelling them all as keydown makes the hotkey service
+            // match the same keystroke several times.
+            return keyboardEventHandler(event.type, event)
         })
 
         this.xtermCore._scrollToBottom = this.xtermCore.scrollToBottom.bind(this.xtermCore)
