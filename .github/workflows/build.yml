@@ -25,6 +25,8 @@ jobs:
         rm app/node_modules/.yarn-integrity
         yarn
 
+    - name: Unit tests
+      run: yarn run test:unit
     - name: Build typings
       run: yarn run build:typings
 
