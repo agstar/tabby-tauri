@@ -1,3 +1,5 @@
+> **Tauri port:** This repository contains the unofficial Tauri v2 + Rust port. See [TAURI.md](TAURI.md).
+
 [![](docs/readme.png)](https://tabby.sh)
 
 
