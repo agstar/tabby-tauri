@@ -1,147 +1,116 @@
-# Some background
+# Development Guide
 
-Tabby is an Electron app, with the frontend written in Typescript with the help of Angular framework. It's built using Webpack.
+This repository is the unofficial Tauri v2 + Rust port of Tabby. The upstream Electron application is not the default runtime here. For upstream Electron development, use [Eugeny/tabby](https://github.com/Eugeny/tabby).
 
-# Getting started
+## Setup
 
-First of all, clone this repository.
+Requirements:
 
-# Install Dependencies
-- [Node.js](https://nodejs.org/en/download/) **version 15 or newer*
-- [Yarn](https://yarnpkg.com/)
+- Windows 10/11 with WebView2.
+- Node.js, npm and Yarn 1.x.
+- Rust stable and the Tauri v2 Windows prerequisites, including MSVC build tools.
 
-First, from within the `tabby` directory install the dependencies via yarn:
+Install dependencies:
 
-```
-# macOS & Windows:
-yarn
-```
+```powershell
+yarn install
 
-```
-# Linux (Debian/Ubuntu here as an example)
-sudo apt install libfontconfig-dev libsecret-1-dev libarchive-tools libnss3 libatk1.0-0 libatk-bridge2.0-0 libgdk-pixbuf2.0-0 libgtk-3-0 libgbm1 cmake
-yarn
+cd tauri-app
+npm install
 ```
 
-_⚠️Note: If you forked this repository, you may need to pull down the tags from this repository before installing node modules. `git pull --tags upstream master`_
+Start the Tauri app:
 
-Build Tabby:
-
-```
-yarn run build
-```
-
-Start Tabby
-
-```
-yarn start
+```powershell
+cd tauri-app
+npm run dev
 ```
 
-# Building an installer
+## Where Things Live
 
-To build an installer, first complete a "normal" build as described above and then run:
+| Path | Responsibility |
+|---|---|
+| `app/` | Shared Tabby renderer entry, Tauri entry and Tauri webpack configuration. |
+| `app/src/tauri-providers/` | Renderer-side implementations backed by Tauri commands. |
+| `app/src/tauri-guards/` | Explicit rejections for unsupported Node/Electron APIs. |
+| `app/src/tauri-polyfills/` | Small browser-side helpers with no hidden system access. |
+| `tabby-core/` | Shared UI, services and provider contracts. |
+| `tabby-terminal/` | Terminal tabs, xterm frontend and stream processing. |
+| `tabby-ssh/` | SSH profiles, sessions, SFTP and forwarding UI. |
+| `tabby-local/` | Local shell profiles and terminal integration. |
+| `tabby-settings/` | Settings and profile UI. |
+| `tabby-tauri/` | Host bindings between Tabby and the Tauri shell. |
+| `tauri-app/src/` | Tauri renderer bootstrap, provider bridge and session adapters. |
+| `tauri-app/src-tauri/src/` | Rust commands and providers for PTY, SSH, SFTP, files, credentials and TCP. |
+| `tauri-app/tests/` | Renderer migration and contract tests. |
+| `tauri-app/src-tauri/tests/` | Rust integration tests. |
+| `tauri-app/scripts/` | Acceptance, stress and performance measurement scripts. |
 
-```
-node scripts/prepackage-plugins.mjs
+## Architecture Rules
 
-node scripts/build-windows.mjs
-# or
-node scripts/build-linux.mjs
-# or
-node scripts/build-macos.mjs
-```
+1. The renderer must not import Electron, Node.js built-ins or a dynamic Node plugin loader.
+2. System access belongs behind a Tauri command and, where possible, a narrow provider contract.
+3. Unsupported features must fail explicitly or be hidden from the UI. Do not silently no-op them.
+4. Do not add broad compatibility shims to make an Electron module compile. Port the specific capability.
+5. Keep command registration, capabilities, TypeScript provider types, UI visibility and tests in sync.
+6. Preserve Tabby behavior unless the Tauri runtime requires a documented difference.
 
-The artifacts will be produced in the `dist` folder.
+When adding a capability, the usual change set is:
 
-# Project layout
-```
-tabby
-├─ app                                  # Electron app, just the bare essentials
-|  ├─ src                               # Electron renderer code
-|  └─ main.js                           # Electron main entry point
-├─ build
-├─ clink                                # Clink distribution, for Windows
-├─ scripts                              # Maintenance scripts
-├─ tabby-community-color-schemes     # Plugin that provides color schemes
-├─ tabby-core                        # Plugin that provides base UI and tab management
-├─ tabby-electron                    # Plugin that provides Electron-specific functions
-├─ tabby-local                       # Plugin that provides local shells and profiles
-├─ tabby-plugin-manager              # Plugin that installs other plugins
-├─ tabby-settings                    # Plugin that provides the settings tab
-├─ tabby-terminal                    # Plugin that provides terminal tabs
-└─ tabby-web                         # Plugin that provides web-specific functions
-```
+- Update the provider contract and renderer implementation.
+- Add or extend Rust commands in `tauri-app/src-tauri/src/`.
+- Register the command and update Tauri capabilities.
+- Update the relevant Tabby module and UI visibility.
+- Add renderer contract tests and Rust integration tests.
+- Run the full verification commands below.
 
-# Plugin layout
-```
-tabby-pluginname
-├─ src                                  # Typescript code
-|  ├─ components                        # Angular components
-|  |  ├─ foo.component.ts               # Code
-|  |  ├─ foo.component.scss             # Styles
-|  |  └─ foo.component.pug              # Template
-|  ├─ services                          # Angular services
-|  |  └─ foo.service.ts
-|  ├─ api.ts                            # Publicly exported API
-|  └─ index.ts                          # Module entry point
-├─ package.json
-├─ tsconfig.json
-└─ webpack.config.js
+## Tests
+
+From `tauri-app`:
+
+```powershell
+npm test
+npm run check:no-electron
+npm run build:tabby-web
 ```
 
-# Plugins
+From `tauri-app/src-tauri`:
 
-The app will load all plugins from the source checkout in the dev mode, from the user's plugins directory at all times (click `Open Plugins Directory` under `Settings` > `Plugins`) and from the directory specified by the `TABBY_PLUGINS` environment var.
-
-Only modules whose `package.json` file contains a `tabby-plugin` keyword will be loaded.
-
-If you're currently in your plugin's directory, start Tabby as `TABBY_PLUGINS=$(pwd) tabby --debug`
-
-A plugin should only provide a default export, which should be a `NgModule` class (or a `NgModuleWithDependencies` where applicable). This module will be injected as a dependency to the app's root module.
-
-```javascript
-import { NgModule } from '@angular/core'
-
-@NgModule()
-export default class MyModule {
-  constructor () {
-    console.log('Angular engaged, cap\'n.')
-  }
-}
+```powershell
+cargo test --all-targets --no-default-features
+cargo clippy --all-targets --no-default-features -- -D warnings
+cargo fmt --check
 ```
 
-Plugins provide functionality by exporting singular or multi providers:
+From the repository root:
 
-
-```javascript
-import { NgModule, Injectable } from '@angular/core'
-import { ToolbarButtonProvider, ToolbarButton } from 'tabby-core'
-
-@Injectable()
-export class MyButtonProvider extends ToolbarButtonProvider {
-    provide (): ToolbarButton[] {
-        return [{
-            icon: 'star',
-            title: 'Foobar',
-            weight: 10,
-            click: () => {
-                alert('Woohoo!')
-            }
-        }]
-    }
-}
-
-@NgModule({
-    providers: [
-        { provide: ToolbarButtonProvider, useClass: MyButtonProvider, multi: true },
-    ],
-})
-export default class MyModule { }
+```powershell
+yarn test:unit
 ```
 
+Targeted tests can be run with:
 
-See `tabby-core/src/api.ts`, `tabby-settings/src/api.ts`, `tabby-local/src/api.ts` and `tabby-terminal/src/api.ts` for the available extension points.
+```powershell
+cd tauri-app
+node --test tests/tauri-renderer-ssh.test.mjs
+node --test tests/tauri-renderer-start-page.test.mjs
+```
 
-Also check out [the example plugin](https://github.com/Eugeny/tabby-clippy).
+## Electron Cleanup
 
-Publish your plugin on NPM with a `tabby-plugin` keyword to make it appear in the Plugin Manager.
+`tabby-electron`, `tabby-uac` and `tabby-plugin-manager` have been removed from the build. Some Electron app-layer code and dependencies remain and are being removed in stages.
+
+Rules for the cleanup:
+
+- Do not reintroduce Electron imports into the Tauri renderer graph.
+- Keep `app/src/tauri-guards/windows-native-registry.ts` and its alias; it provides the registry-backed environment refresh used by new sessions.
+- Do not delete `app/` wholesale. It still contains shared Tauri entry and webpack configuration.
+- When removing a dependency, update build scripts, plugin lists and tests in the same change.
+
+## Documentation
+
+- `README.md`: English project overview and user-facing instructions.
+- `README.zh-CN.md`: Chinese project overview.
+- `HACKING.md`: development workflow and architecture rules.
+
+Keep commands and paths relative to the repository root unless a section explicitly changes directory.
