@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { scanForElectronImports } from '../scripts/check-no-electron-imports.mjs'
 import { buildTauriImportGraph, loadMigrationMatrix, scanTauriNodeElectronGraph } from '../scripts/check-tauri-node-electron-graph.mjs'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 test('scanForElectronImports reports Electron and dynamic Node plugin loader patterns', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'tabby-tauri-gate-'))
@@ -47,7 +47,7 @@ test('Tauri renderer graph has no reachable Node/Electron migration findings', (
   assert.equal(result.untracked.length, 0, result.untracked.map(f => `${f.file}:${f.pattern}`).join('\n'))
   assert.equal(result.tracked.length, 0, result.tracked.map(f => `${f.file}:${f.pattern}`).join('\n'))
   assert.ok(
-    result.graph.files.includes('tabby/app/src/entry.tauri.ts'),
+    result.graph.files.includes('app/src/entry.tauri.ts'),
     'graph must be rooted in the Tauri entrypoint',
   )
 })
@@ -86,22 +86,22 @@ test('Tauri SSH graph uses provider contracts instead of Electron russh sessions
   const graph = buildTauriImportGraph({ repoRoot })
 
   for (const electronOnlySession of [
-    'tabby/tabby-ssh/src/session/ssh.ts',
-    'tabby/tabby-ssh/src/session/shell.ts',
-    'tabby/tabby-ssh/src/session/sftp.ts',
-    'tabby/tabby-ssh/src/session/forwards.ts',
-    'tabby/tabby-ssh/src/session/x11.ts',
+    'tabby-ssh/src/session/ssh.ts',
+    'tabby-ssh/src/session/shell.ts',
+    'tabby-ssh/src/session/sftp.ts',
+    'tabby-ssh/src/session/forwards.ts',
+    'tabby-ssh/src/session/x11.ts',
   ]) {
     assert.ok(!graph.files.includes(electronOnlySession), `${electronOnlySession} must stay out of the Tauri renderer graph`)
   }
   assert.ok(
-    graph.files.includes('tabby/tabby-ssh/src/session/types.ts'),
+    graph.files.includes('tabby-ssh/src/session/types.ts'),
     'Tauri should depend on SSH provider contracts, not Electron transport implementations',
   )
 })
 
 test('Tauri terminal stream processor is browser-native', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'middleware', 'streamProcessing.ts'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'middleware', 'streamProcessing.ts'), 'utf8')
 
   assert.doesNotMatch(source, /from ['"](?:stream|readline)['"]|require\(['"](?:stream|readline)['"]\)/)
   assert.match(source, /private feedReadlineInput/, 'readline input mode should be implemented directly in the browser middleware')
@@ -111,12 +111,12 @@ test('Tauri terminal stream processor is browser-native', () => {
 test('Tauri renderer graph excludes Electron bootstrap and dynamic plugin loader', () => {
   const graph = buildTauriImportGraph({ repoRoot })
 
-  assert.ok(!graph.files.includes('tabby/app/src/entry.ts'), 'Electron entry.ts must not be reachable from entry.tauri.ts')
-  assert.ok(!graph.files.includes('tabby/app/src/plugins.ts'), 'Electron dynamic plugin loader must not be reachable from entry.tauri.ts')
+  assert.ok(!graph.files.includes('app/src/entry.ts'), 'Electron entry.ts must not be reachable from entry.tauri.ts')
+  assert.ok(!graph.files.includes('app/src/plugins.ts'), 'Electron dynamic plugin loader must not be reachable from entry.tauri.ts')
 })
 
 test('Tauri Node/Electron migration matrix records provider contracts and plugin MVP policy', () => {
-  const matrixPath = resolve(repoRoot, '.omx', 'plans', 'tauri-node-electron-migration-matrix.md')
+  const matrixPath = resolve(repoRoot, 'docs', 'tauri', 'migration', 'tauri-node-electron-migration-matrix.md')
   assert.equal(existsSync(matrixPath), true, 'migration matrix must exist')
 
   const matrix = readFileSync(matrixPath, 'utf8')
@@ -134,11 +134,11 @@ test('Tauri Node/Electron migration matrix records provider contracts and plugin
 
   const parsed = loadMigrationMatrix({ repoRoot })
   assert.ok(
-    parsed.allowed.has('tabby/tabby-core/src/services/vault.service.ts|node-crypto'),
+    parsed.allowed.has('tabby-core/src/services/vault.service.ts|node-crypto'),
     'matrix must track the vault crypto migration row',
   )
   assert.ok(
-    parsed.allowed.has('tabby/app/src/plugins.ts|node-module-loader'),
+    parsed.allowed.has('app/src/plugins.ts|node-module-loader'),
     'matrix must track the excluded Electron plugin loader row',
   )
 })

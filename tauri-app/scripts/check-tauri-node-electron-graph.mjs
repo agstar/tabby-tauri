@@ -3,24 +3,24 @@ import { dirname, extname, isAbsolute, join, normalize, relative, resolve, sep }
 import { fileURLToPath } from 'node:url'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
-const DEFAULT_REPO_ROOT = resolve(SCRIPT_DIR, '..', '..', '..')
-const DEFAULT_ENTRY = 'tabby/app/src/entry.tauri.ts'
-const DEFAULT_MATRIX = '.omx/plans/tauri-node-electron-migration-matrix.md'
+const DEFAULT_REPO_ROOT = resolve(SCRIPT_DIR, '..', '..')
+const DEFAULT_ENTRY = 'app/src/entry.tauri.ts'
+const DEFAULT_MATRIX = 'docs/tauri/migration/tauri-node-electron-migration-matrix.md'
 const SOURCE_EXTENSIONS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 
 const PACKAGE_ALIASES = new Map([
-  ['tabby-core', 'tabby/tabby-core/src'],
-  ['tabby-settings', 'tabby/tabby-settings/src'],
-  ['tabby-terminal', 'tabby/tabby-terminal/src'],
-  ['tabby-local', 'tabby/tabby-local/src'],
-  ['tabby-ssh', 'tabby/tabby-ssh/src'],
-  ['tabby-tauri', 'tabby/tabby-tauri/src'],
+  ['tabby-core', 'tabby-core/src'],
+  ['tabby-settings', 'tabby-settings/src'],
+  ['tabby-terminal', 'tabby-terminal/src'],
+  ['tabby-local', 'tabby-local/src'],
+  ['tabby-ssh', 'tabby-ssh/src'],
+  ['tabby-tauri', 'tabby-tauri/src'],
 ])
 
 const EXACT_ALIASES = new Map([
-  ['russh', 'tabby/app/src/tauri-guards/russh.ts'],
-  ['@luminati-io/socksv5', 'tabby/app/src/tauri-guards/socksv5.ts'],
-  ['fs/promises', 'tabby/app/src/tauri-providers/fs-promises.ts'],
+  ['russh', 'app/src/tauri-guards/russh.ts'],
+  ['@luminati-io/socksv5', 'app/src/tauri-guards/socksv5.ts'],
+  ['fs/promises', 'app/src/tauri-providers/fs-promises.ts'],
 ])
 
 const FORBIDDEN_IMPORTS = new Map([
@@ -51,9 +51,9 @@ const CODE_PATTERNS = [
 ]
 
 const TRANSITIONAL_ALLOWLIST = [
-  'tabby/app/webpack.config.tauri.mjs',
-  'tabby/tauri-app/tests/',
-  'tabby/tauri-app/scripts/',
+  'app/webpack.config.tauri.mjs',
+  'tauri-app/tests/',
+  'tauri-app/scripts/',
 ]
 
 function toRepoPath (repoRoot, path) {

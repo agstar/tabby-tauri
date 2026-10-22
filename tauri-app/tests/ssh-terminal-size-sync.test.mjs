@@ -7,10 +7,10 @@ import { tmpdir } from 'node:os'
 import test from 'node:test'
 import ts from 'typescript'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 async function importSizeSync () {
-  const sourcePath = resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'sshTerminalSizeSync.ts')
+  const sourcePath = resolve(repoRoot, 'tabby-tauri', 'src', 'sshTerminalSizeSync.ts')
   const outDir = await mkdtemp(join(tmpdir(), 'tabby-tauri-ssh-size-'))
   const js = ts.transpileModule(readFileSync(sourcePath, 'utf8'), {
     compilerOptions: {
@@ -99,7 +99,7 @@ test('SSH terminal can force the current size to be resent after a missed remote
 
 test('SSH tab primes the shell session with the current frontend size before opening it', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'),
+    resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'),
     'utf8',
   )
   const createIndex = source.indexOf('const session = await this.sshShellSessionFactory.create')
@@ -117,7 +117,7 @@ test('SSH tab primes the shell session with the current frontend size before ope
 
 test('SSH tab resynchronizes the remote PTY size after the terminal regains focus', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'),
+    resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'),
     'utf8',
   )
 

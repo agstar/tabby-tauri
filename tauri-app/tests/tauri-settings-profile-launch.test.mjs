@@ -3,14 +3,14 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 function readRepoFile(...segments) {
   return readFileSync(resolve(repoRoot, ...segments), 'utf8')
 }
 
 test('bundled Tauri SSH shell sessions keep Tabby terminal input and output middleware active', () => {
-  const source = readRepoFile('tabby', 'tabby-tauri', 'src', 'index.ts')
+  const source = readRepoFile('tabby-tauri', 'src', 'index.ts')
   const sessionStart = source.indexOf('export class TauriSshShellSession')
   const sessionEndMatch = /@Injectable\(\)\r?\nexport class TauriLogService/.exec(source)
 
@@ -57,11 +57,11 @@ test('bundled Tauri SSH shell sessions keep Tabby terminal input and output midd
 })
 
 test('release backend uses Windows APIs instead of console subprocesses for fonts and process trees', () => {
-  const cargoToml = readRepoFile('tabby', 'tauri-app', 'src-tauri', 'Cargo.toml')
-  const libSource = readRepoFile('tabby', 'tauri-app', 'src-tauri', 'src', 'lib.rs')
-  const mainSource = readRepoFile('tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs')
-  const ptySource = readRepoFile('tabby', 'tauri-app', 'src-tauri', 'src', 'pty.rs')
-  const credentialSource = readRepoFile('tabby', 'tauri-app', 'src-tauri', 'src', 'credential.rs')
+  const cargoToml = readRepoFile('tauri-app', 'src-tauri', 'Cargo.toml')
+  const libSource = readRepoFile('tauri-app', 'src-tauri', 'src', 'lib.rs')
+  const mainSource = readRepoFile('tauri-app', 'src-tauri', 'src', 'main.rs')
+  const ptySource = readRepoFile('tauri-app', 'src-tauri', 'src', 'pty.rs')
+  const credentialSource = readRepoFile('tauri-app', 'src-tauri', 'src', 'credential.rs')
 
   assert.match(cargoToml, /windows-sys\s*=\s*\{[^}]*Win32_System_Registry/s)
   assert.match(cargoToml, /windows-sys\s*=\s*\{[^}]*Win32_System_Diagnostics_ToolHelp/s)

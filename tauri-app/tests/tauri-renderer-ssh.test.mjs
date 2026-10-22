@@ -3,11 +3,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 test('Tauri renderer SSH accepts Tabby default reuse sessions and resolves password prompts', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const zhCnLocale = readFileSync(resolve(repoRoot, 'tabby', 'locale', 'zh-CN.po'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const zhCnLocale = readFileSync(resolve(repoRoot, 'locale', 'zh-CN.po'), 'utf8')
 
   assert.doesNotMatch(
     source,
@@ -74,9 +74,9 @@ test('Tauri renderer SSH accepts Tabby default reuse sessions and resolves passw
 })
 
 test('SSH acceptance scripts produce sanitized artifacts without credential persistence', () => {
-  const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'package.json'), 'utf8'))
-  const smokeScript = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'scripts', 'measure-ssh-acceptance.mjs'), 'utf8')
-  const idleScript = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'scripts', 'ssh-idle-soak.ps1'), 'utf8')
+  const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'tauri-app', 'package.json'), 'utf8'))
+  const smokeScript = readFileSync(resolve(repoRoot, 'tauri-app', 'scripts', 'measure-ssh-acceptance.mjs'), 'utf8')
+  const idleScript = readFileSync(resolve(repoRoot, 'tauri-app', 'scripts', 'ssh-idle-soak.ps1'), 'utf8')
 
   assert.equal(packageJson.scripts['smoke:ssh-e2e'], 'node scripts/measure-ssh-acceptance.mjs')
   assert.equal(packageJson.scripts['soak:ssh-idle'], 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ssh-idle-soak.ps1')
@@ -93,9 +93,9 @@ test('SSH acceptance scripts produce sanitized artifacts without credential pers
 })
 
 test('SSH command-matrix harness covers real remote shell input/output without persisting credentials', () => {
-  const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'package.json'), 'utf8'))
-  const matrixScript = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'scripts', 'measure-ssh-command-matrix.mjs'), 'utf8')
-  const smokeTest = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'tests', 'ssh_transport_smoke.rs'), 'utf8')
+  const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'tauri-app', 'package.json'), 'utf8'))
+  const matrixScript = readFileSync(resolve(repoRoot, 'tauri-app', 'scripts', 'measure-ssh-command-matrix.mjs'), 'utf8')
+  const smokeTest = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'tests', 'ssh_transport_smoke.rs'), 'utf8')
 
   assert.equal(packageJson.scripts['smoke:ssh-command-matrix'], 'node scripts/measure-ssh-command-matrix.mjs')
   assert.match(matrixScript, /ssh-command-matrix-tabby-tauri-windows\.json/)
@@ -111,7 +111,7 @@ test('SSH command-matrix harness covers real remote shell input/output without p
 })
 
 test('Tauri renderer SSH blocks host-key mismatch before authentication and keeps password handling isolated', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(source, /class TauriSshTrustService/)
   assert.match(source, /stored\.sha256 === scan\.sha256/)
@@ -128,7 +128,7 @@ test('Tauri renderer SSH blocks host-key mismatch before authentication and keep
 })
 
 test('Tauri renderer SSH cannot leave a blank terminal while pre-auth, connect, or shell open is stuck', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(source, /function sanitizeSshError/)
   assert.match(source, /function withSshTimeout/)
@@ -173,7 +173,7 @@ test('Tauri renderer SSH cannot leave a blank terminal while pre-auth, connect, 
 })
 
 test('SSH tab awaits visible initialization failures so failed Tauri auth is rendered before returning', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'), 'utf8')
 
   assert.match(source, /async initializeSession \(\): Promise<void>/)
   assert.match(
@@ -184,7 +184,7 @@ test('SSH tab awaits visible initialization failures so failed Tauri auth is ren
 })
 
 test('Tauri overrides SSH password storage instead of using Electron keytar in WebView', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(source, /export class TauriPasswordStorageService/)
   assert.match(source, /tabby-tauri:ssh-password:/)
@@ -204,11 +204,11 @@ test('Tauri overrides SSH password storage instead of using Electron keytar in W
 })
 
 test('Tauri SSH tabs use the native xterm onData input chain without a textarea fallback', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const sshTabSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'), 'utf8')
-  const xtermFrontendSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'frontends', 'xtermFrontend.ts'), 'utf8')
-  const terminalTabSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
-  const sessionSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'session.ts'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const sshTabSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'), 'utf8')
+  const xtermFrontendSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'frontends', 'xtermFrontend.ts'), 'utf8')
+  const terminalTabSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
+  const sessionSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'session.ts'), 'utf8')
 
   assert.match(xtermFrontendSource, /this\.xterm\.onData\(data => \{[\s\S]*this\.input\.next\(Buffer\.from\(data, 'utf-8'\)\)/)
   assert.match(terminalTabSource, /this\.termContainerSubscriptions\.subscribe\(this\.frontend\.input\$, data => \{[\s\S]*this\.sendInput\(data\)/)
@@ -252,7 +252,7 @@ test('Tauri SSH tabs use the native xterm onData input chain without a textarea 
 })
 
 test('inactive terminal tabs buffer output until they become visible again', () => {
-  const terminalTabSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
+  const terminalTabSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
 
   assert.match(
     terminalTabSource,
@@ -287,9 +287,9 @@ test('inactive terminal tabs buffer output until they become visible again', () 
 })
 
 test('Tauri SSH stream transport applies output backpressure before flooding the WebView IPC channel', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const sshSource = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
-  const ptySource = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'pty.rs'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const sshSource = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
+  const ptySource = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'pty.rs'), 'utf8')
 
   assert.match(
     tauriSource,
@@ -360,7 +360,7 @@ test('Tauri SSH stream transport applies output backpressure before flooding the
 })
 
 test('Tauri local PTY renderer batches output before the local session ACKs it', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(
     tauriSource,
@@ -390,8 +390,8 @@ test('Tauri local PTY renderer batches output before the local session ACKs it',
 })
 
 test('Tauri shell provider loads the shell list from Rust with renderer defaults as fallback', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const rustMain = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const rustMain = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   assert.match(rustMain, /struct NativeShellEntry/)
   assert.match(rustMain, /fn shell_list\(\) -> Vec<NativeShellEntry>/)
@@ -410,8 +410,8 @@ test('Tauri shell provider loads the shell list from Rust with renderer defaults
 })
 
 test('SSH top stress harness covers 10 high-output remote sessions and resource use', () => {
-  const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'package.json'), 'utf8'))
-  const stressScript = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'scripts', 'measure-ssh-top-stress.mjs'), 'utf8')
+  const packageJson = JSON.parse(readFileSync(resolve(repoRoot, 'tauri-app', 'package.json'), 'utf8'))
+  const stressScript = readFileSync(resolve(repoRoot, 'tauri-app', 'scripts', 'measure-ssh-top-stress.mjs'), 'utf8')
 
   assert.equal(packageJson.scripts['smoke:ssh-top-stress'], 'node scripts/measure-ssh-top-stress.mjs')
   assert.match(stressScript, /ssh-top-stress-tabby-tauri-windows\.json/)
@@ -430,7 +430,7 @@ test('SSH top stress harness covers 10 high-output remote sessions and resource 
 })
 
 test('SSH stream transport tears down the backend when the renderer output channel closes', () => {
-  const sshSource = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
+  const sshSource = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
 
   assert.match(
     sshSource,
@@ -450,7 +450,7 @@ test('SSH stream transport tears down the backend when the renderer output chann
 })
 
 test('Tauri SSH idle sessions keep the transport alive and surface stale write failures', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(
     tauriSource,
@@ -485,10 +485,10 @@ test('Tauri SSH idle sessions keep the transport alive and surface stale write f
 })
 
 test('Tauri SSH exposes native SFTP sessions for remote file transfer panels', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const rustMain = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
-  const rustSsh = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
-  const cargoToml = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'Cargo.toml'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const rustMain = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const rustSsh = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
+  const cargoToml = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'Cargo.toml'), 'utf8')
 
   assert.match(tauriSource, /class TauriSftpSession/, 'SFTP panel must get a Tauri-native SFTP session object')
   assert.match(tauriSource, /openSFTP\s*\(\):\s*Promise<TauriSftpSession>/, 'Tauri SSH connections must implement openSFTP')
@@ -532,7 +532,7 @@ test('Tauri SSH exposes native SFTP sessions for remote file transfer panels', (
 })
 
 test('Tauri local terminal ssh commands expose an ad-hoc SFTP toolbar entry', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(
     tauriSource,
@@ -567,9 +567,9 @@ test('Tauri local terminal ssh commands expose an ad-hoc SFTP toolbar entry', ()
 })
 
 test('Tauri local ssh SFTP toolbar follows submitted terminal input when process lookup misses', () => {
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const appRootSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'appRoot.component.ts'), 'utf8')
-  const appRootTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'appRoot.component.pug'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const appRootSource = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'appRoot.component.ts'), 'utf8')
+  const appRootTemplate = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'appRoot.component.pug'), 'utf8')
 
   assert.match(
     tauriSource,
@@ -654,8 +654,8 @@ test('Tauri local ssh SFTP toolbar follows submitted terminal input when process
 })
 
 test('SFTP folder downloads use a backend plan when Tauri provides one', () => {
-  const panelSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sftpPanel.component.ts'), 'utf8')
-  const typesSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'session', 'types.ts'), 'utf8')
+  const panelSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sftpPanel.component.ts'), 'utf8')
+  const typesSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'session', 'types.ts'), 'utf8')
 
   assert.match(typesSource, /directoryPlan\?\s*\(p: string\): Promise<SFTPDirectoryPlan>/)
   assert.match(
@@ -681,7 +681,7 @@ test('SFTP folder downloads use a backend plan when Tauri provides one', () => {
 })
 
 test('SFTP panel falls back from missing shell cwd to the remote login directory', () => {
-  const panelSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sftpPanel.component.ts'), 'utf8')
+  const panelSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sftpPanel.component.ts'), 'utf8')
 
   assert.match(
     panelSource,
@@ -696,8 +696,8 @@ test('SFTP panel falls back from missing shell cwd to the remote login directory
 })
 
 test('SFTP working-directory tip close button dismisses without opening docs', () => {
-  const panelSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sftpPanel.component.ts'), 'utf8')
-  const panelTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sftpPanel.component.pug'), 'utf8')
+  const panelSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sftpPanel.component.ts'), 'utf8')
+  const panelTemplate = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sftpPanel.component.pug'), 'utf8')
 
   assert.match(
     panelTemplate,

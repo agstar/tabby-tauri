@@ -6,7 +6,7 @@ import { inflateSync } from 'node:zlib'
 import test from 'node:test'
 import ts from 'typescript'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 function includesLoader (use, loaderName) {
   const entries = Array.isArray(use) ? use : [use]
@@ -135,7 +135,7 @@ function brightPixelBounds (png) {
 }
 
 test('Tauri renderer inlines SVG icons required by TS and Pug templates', async () => {
-  const configModule = await import(pathToFileURL(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs')).href)
+  const configModule = await import(pathToFileURL(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs')).href)
   const config = configModule.default()
   const rules = config.module.rules
 
@@ -151,15 +151,15 @@ test('Tauri renderer inlines SVG icons required by TS and Pug templates', async 
 })
 
 test('Tauri renderer no longer routes Node/Electron APIs through a tauri-shims namespace', () => {
-  const webpackConfig = readFileSync(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs'), 'utf8')
-  const shimDir = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-shims')
+  const webpackConfig = readFileSync(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs'), 'utf8')
+  const shimDir = resolve(repoRoot, 'app', 'src', 'tauri-shims')
 
   assert.doesNotMatch(webpackConfig, /tauri-shims/, 'Tauri webpack aliases/fallbacks must point at providers, guards, or browser polyfills, not tauri-shims')
   assert.equal(existsSync(shimDir), false, 'the legacy tauri-shims source directory must be removed once paths are migrated')
 })
 
 test('Tauri messageformat compiler interpolates translate params', () => {
-  const compilerProviderPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-providers', 'translate-messageformat-compiler.ts')
+  const compilerProviderPath = resolve(repoRoot, 'app', 'src', 'tauri-providers', 'translate-messageformat-compiler.ts')
   const source = readFileSync(compilerProviderPath, 'utf8')
   const outputText = ts.transpileModule(source, {
     compilerOptions: {
@@ -189,14 +189,14 @@ test('Tauri messageformat compiler interpolates translate params', () => {
 })
 
 test('Tauri renderer loads shared logo styles for the start page', () => {
-  const entryPath = resolve(repoRoot, 'tabby', 'app', 'src', 'entry.tauri.ts')
+  const entryPath = resolve(repoRoot, 'app', 'src', 'entry.tauri.ts')
   const entry = readFileSync(entryPath, 'utf8')
 
   assert.match(entry, /import\s+['"]\.\/preload\.scss['"]/, 'start page should reuse Tabby preload logo CSS')
 })
 
 test('Tauri generated index paints a dark preload shell before the bundle loads', () => {
-  const webpackConfig = readFileSync(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs'), 'utf8')
+  const webpackConfig = readFileSync(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs'), 'utf8')
 
   assert.match(webpackConfig, /html,\s*body[\s\S]*background:\s*#000e17/, 'initial HTML must set a dark background before JS and CSS loaders run')
   assert.match(webpackConfig, /app-root[\s\S]*background:\s*#1D272D/, 'app-root must also be dark for the first WebView paint')
@@ -205,10 +205,10 @@ test('Tauri generated index paints a dark preload shell before the bundle loads'
 })
 
 test('Tauri renderer overrides the start page logo with its own brand asset', () => {
-  const entry = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'entry.tauri.ts'), 'utf8')
-  const tauriBrandingScss = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-branding.scss'), 'utf8')
-  const logo = readFileSync(resolve(repoRoot, 'tabby', 'app', 'assets', 'tauri-logo.svg'), 'utf8')
-  const appIcon = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'icons', 'app-icon.svg'), 'utf8')
+  const entry = readFileSync(resolve(repoRoot, 'app', 'src', 'entry.tauri.ts'), 'utf8')
+  const tauriBrandingScss = readFileSync(resolve(repoRoot, 'app', 'src', 'tauri-branding.scss'), 'utf8')
+  const logo = readFileSync(resolve(repoRoot, 'app', 'assets', 'tauri-logo.svg'), 'utf8')
+  const appIcon = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'icons', 'app-icon.svg'), 'utf8')
 
   assert.match(entry, /import\s+['"]\.\/tauri-branding\.scss['"]/, 'Tauri entry must load its own branding override after shared preload styles')
   assert.match(
@@ -226,14 +226,14 @@ test('Tauri renderer overrides the start page logo with its own brand asset', ()
 })
 
 test('Tauri start page title uses the project name under the logo', () => {
-  const startPage = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'startPage.component.pug'), 'utf8')
+  const startPage = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'startPage.component.pug'), 'utf8')
 
   assert.match(startPage, /h1\.tabby-title Tabby Tauri/)
   assert.doesNotMatch(startPage, /h1\.tabby-title Tabby\s*\n\s*sup α/)
 })
 
 test('Tauri bundle declares a real multi-size Windows taskbar icon', () => {
-  const tauriRoot = resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri')
+  const tauriRoot = resolve(repoRoot, 'tauri-app', 'src-tauri')
   const config = JSON.parse(readFileSync(resolve(tauriRoot, 'tauri.conf.json'), 'utf8'))
   const icons = config.bundle?.icon ?? []
 
@@ -263,7 +263,7 @@ test('Tauri bundle declares a real multi-size Windows taskbar icon', () => {
 })
 
 test('Tauri production renderer trims debug build output while keeping dev builds readable', async () => {
-  const configModule = await import(pathToFileURL(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs')).href)
+  const configModule = await import(pathToFileURL(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs')).href)
   const previousDevFlag = process.env.TABBY_DEV
 
   try {
@@ -298,8 +298,8 @@ test('Tauri production renderer trims debug build output while keeping dev build
 })
 
 test('Tauri bootstrap code-splits bundled plugins before Angular starts', () => {
-  const entry = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'entry.tauri.ts'), 'utf8')
-  const tsconfig = JSON.parse(readFileSync(resolve(repoRoot, 'tabby', 'tsconfig.tauri.json'), 'utf8'))
+  const entry = readFileSync(resolve(repoRoot, 'app', 'src', 'entry.tauri.ts'), 'utf8')
+  const tsconfig = JSON.parse(readFileSync(resolve(repoRoot, 'tsconfig.tauri.json'), 'utf8'))
 
   assert.match(entry, /async function loadBundledPluginModules \(\)/, 'Tauri entry must have an async bundled-plugin loader')
   assert.match(
@@ -333,9 +333,9 @@ test('Tauri bootstrap code-splits bundled plugins before Angular starts', () => 
 })
 
 test('Tauri terminal scrollback safety keeps existing terminal defaults intact', () => {
-  const entry = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'entry.tauri.ts'), 'utf8')
-  const tauriSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const xtermSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'frontends', 'xtermFrontend.ts'), 'utf8')
+  const entry = readFileSync(resolve(repoRoot, 'app', 'src', 'entry.tauri.ts'), 'utf8')
+  const tauriSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const xtermSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'frontends', 'xtermFrontend.ts'), 'utf8')
 
   assert.match(
     entry,
@@ -365,9 +365,9 @@ test('Tauri terminal scrollback safety keeps existing terminal defaults intact',
 })
 
 test('Tauri renderer provides readline APIs used by terminal spinners and readline input mode', async () => {
-  const configModule = await import(pathToFileURL(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs')).href)
+  const configModule = await import(pathToFileURL(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs')).href)
   const config = configModule.default()
-  const polyfillPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-polyfills', 'readline.ts')
+  const polyfillPath = resolve(repoRoot, 'app', 'src', 'tauri-polyfills', 'readline.ts')
 
   assert.equal(config.resolve.fallback.readline, polyfillPath)
   assert.equal(existsSync(polyfillPath), true, 'readline fallback polyfill must exist for the Tauri WebView renderer')
@@ -414,8 +414,8 @@ test('Tauri renderer provides readline APIs used by terminal spinners and readli
 })
 
 test('Tauri renderer process provider must not seed fake OS environment paths', () => {
-  const processProvider = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-providers', 'process.ts'), 'utf8')
-  const webpackConfig = readFileSync(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs'), 'utf8')
+  const processProvider = readFileSync(resolve(repoRoot, 'app', 'src', 'tauri-providers', 'process.ts'), 'utf8')
+  const webpackConfig = readFileSync(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs'), 'utf8')
 
   assert.doesNotMatch(processProvider, /\bPATH:\s*['"]{2}/, 'process.env.PATH must not be seeded as blank')
   assert.doesNotMatch(processProvider, /\bPath:\s*['"]{2}/, 'process.env.Path must not be seeded as blank')
@@ -430,8 +430,8 @@ test('Tauri renderer process provider must not seed fake OS environment paths', 
 })
 
 test('Tauri bootstrap hydrates renderer process env from the Rust host', () => {
-  const entry = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'entry.tauri.ts'), 'utf8')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const entry = readFileSync(resolve(repoRoot, 'app', 'src', 'entry.tauri.ts'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   assert.match(
     main,
@@ -456,7 +456,7 @@ test('Tauri bootstrap hydrates renderer process env from the Rust host', () => {
 })
 
 test('Tauri os provider derives home and temp directories from hydrated process env', () => {
-  const osProvider = readFileSync(resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-providers', 'os.ts'), 'utf8')
+  const osProvider = readFileSync(resolve(repoRoot, 'app', 'src', 'tauri-providers', 'os.ts'), 'utf8')
 
   assert.doesNotMatch(osProvider, /homedir\s*\(\)\s*:\s*string\s*\{\s*return ['"]C:\\\\Users['"]/, 'os.homedir must not return a generic Windows users directory')
   assert.doesNotMatch(osProvider, /tmpdir\s*\(\)\s*:\s*string\s*\{\s*return ['"]C:\\\\Windows\\\\Temp['"]/, 'os.tmpdir must not ignore the user temp directory')
@@ -465,11 +465,11 @@ test('Tauri os provider derives home and temp directories from hydrated process 
 })
 
 test('Tauri local sessions must not let renderer fs provider/guard reject real working directories', () => {
-  const localSession = readFileSync(resolve(repoRoot, 'tabby', 'tabby-local', 'src', 'session.ts'), 'utf8')
-  const terminalService = readFileSync(resolve(repoRoot, 'tabby', 'tabby-local', 'src', 'services', 'terminal.service.ts'), 'utf8')
-  const cli = readFileSync(resolve(repoRoot, 'tabby', 'tabby-local', 'src', 'cli.ts'), 'utf8')
-  const tauriHost = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const localSession = readFileSync(resolve(repoRoot, 'tabby-local', 'src', 'session.ts'), 'utf8')
+  const terminalService = readFileSync(resolve(repoRoot, 'tabby-local', 'src', 'services', 'terminal.service.ts'), 'utf8')
+  const cli = readFileSync(resolve(repoRoot, 'tabby-local', 'src', 'cli.ts'), 'utf8')
+  const tauriHost = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   for (const [label, source] of [
     ['local Session', localSession],
@@ -488,9 +488,9 @@ test('Tauri local sessions must not let renderer fs provider/guard reject real w
 })
 
 test('Tauri renderer fs provider/guard are provider-backed or explicit unsupported instead of silent fake OS results', () => {
-  const fsGuardPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-guards', 'fs.ts')
-  const fsPromisesProviderPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-providers', 'fs-promises.ts')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const fsGuardPath = resolve(repoRoot, 'app', 'src', 'tauri-guards', 'fs.ts')
+  const fsPromisesProviderPath = resolve(repoRoot, 'app', 'src', 'tauri-providers', 'fs-promises.ts')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   const fsGuardSource = readFileSync(fsGuardPath, 'utf8')
   const fsOutputText = ts.transpileModule(fsGuardSource, {
@@ -585,10 +585,10 @@ test('Tauri renderer fs provider/guard are provider-backed or explicit unsupport
 })
 
 test('Tauri vault crypto uses native provider instead of Node crypto in the renderer graph', () => {
-  const vaultService = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'services', 'vault.service.ts'), 'utf8')
-  const tauriHost = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const vaultRust = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'vault.rs'), 'utf8')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const vaultService = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'services', 'vault.service.ts'), 'utf8')
+  const tauriHost = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const vaultRust = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'vault.rs'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   assert.doesNotMatch(vaultService, /from ['"]crypto['"]|require\(['"]crypto['"]\)/, 'VaultService must not import Node crypto in the Tauri graph')
   assert.doesNotMatch(vaultService, /from ['"]util['"]|promisify/, 'VaultService must not depend on Node util.promisify for crypto')
@@ -604,10 +604,10 @@ test('Tauri vault crypto uses native provider instead of Node crypto in the rend
 })
 
 test('Tauri net provider is provider-backed for Telnet TCP sockets and explicit about server sockets', async () => {
-  const netProviderPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-providers', 'net.ts')
+  const netProviderPath = resolve(repoRoot, 'app', 'src', 'tauri-providers', 'net.ts')
   const netProviderSource = readFileSync(netProviderPath, 'utf8')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
-  const lib = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'lib.rs'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const lib = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'lib.rs'), 'utf8')
 
   assert.doesNotMatch(
     netProviderSource,
@@ -697,9 +697,9 @@ test('Tauri net provider is provider-backed for Telnet TCP sockets and explicit 
 })
 
 test('Tauri renderer must not load the Node SOCKS proxy package during startup', async () => {
-  const configModule = await import(pathToFileURL(resolve(repoRoot, 'tabby', 'app', 'webpack.config.tauri.mjs')).href)
+  const configModule = await import(pathToFileURL(resolve(repoRoot, 'app', 'webpack.config.tauri.mjs')).href)
   const config = configModule.default()
-  const guardPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-guards', 'socksv5.ts')
+  const guardPath = resolve(repoRoot, 'app', 'src', 'tauri-guards', 'socksv5.ts')
 
   assert.equal(
     config.resolve.alias['@luminati-io/socksv5'],
@@ -714,7 +714,7 @@ test('Tauri renderer must not load the Node SOCKS proxy package during startup',
 })
 
 test('Tauri tls guard rejects real TLS operations instead of returning fake sockets or contexts', () => {
-  const tlsGuardPath = resolve(repoRoot, 'tabby', 'app', 'src', 'tauri-guards', 'tls.ts')
+  const tlsGuardPath = resolve(repoRoot, 'app', 'src', 'tauri-guards', 'tls.ts')
   const tlsGuardSource = readFileSync(tlsGuardPath, 'utf8')
 
   assert.doesNotMatch(
@@ -744,7 +744,7 @@ test('Tauri tls guard rejects real TLS operations instead of returning fake sock
 })
 
 test('Tauri Windows shell provider derives stock shell paths from hydrated environment', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
 
   assert.match(
     tauriHostSource,
@@ -759,8 +759,8 @@ test('Tauri Windows shell provider derives stock shell paths from hydrated envir
 })
 
 test('Tauri openExternal is backed by a native Windows provider, not a no-op shim', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   assert.match(
     tauriHostSource,
@@ -780,9 +780,9 @@ test('Tauri openExternal is backed by a native Windows provider, not a no-op shi
 })
 
 test('Tauri tab header context menu renders a theme-aware Tabby DOM menu instead of a native Windows menu', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const contextMenuSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'contextMenu.ts'), 'utf8')
-  const tabHeaderSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'tabHeader.component.ts'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const contextMenuSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'contextMenu.ts'), 'utf8')
+  const tabHeaderSource = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'tabHeader.component.ts'), 'utf8')
 
   assert.doesNotMatch(
     tauriHostSource,
@@ -837,8 +837,8 @@ test('Tauri tab header context menu renders a theme-aware Tabby DOM menu instead
 })
 
 test('xterm resize recovery refits and repaints after collapsed window geometry', () => {
-  const xtermFrontendSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'frontends', 'xtermFrontend.ts'), 'utf8')
-  const baseTerminalTabSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
+  const xtermFrontendSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'frontends', 'xtermFrontend.ts'), 'utf8')
+  const baseTerminalTabSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
 
   assert.match(
     xtermFrontendSource,
@@ -912,11 +912,11 @@ test('xterm resize recovery refits and repaints after collapsed window geometry'
 })
 
 test('Tauri unsupported surface is tracked and source-of-truth consistent', () => {
-  const matrix = readFileSync(resolve(repoRoot, '.omx', 'plans', 'tauri-unsupported-matrix.md'), 'utf8')
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const tauriHostTypes = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'typings', 'index.d.ts'), 'utf8')
-  const providers = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src', 'tauri-providers.ts'), 'utf8')
-  const registry = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src', 'tauri-tabby-session-registry.ts'), 'utf8')
+  const matrix = readFileSync(resolve(repoRoot, 'docs', 'tauri', 'migration', 'tauri-unsupported-matrix.md'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const tauriHostTypes = readFileSync(resolve(repoRoot, 'tabby-tauri', 'typings', 'index.d.ts'), 'utf8')
+  const providers = readFileSync(resolve(repoRoot, 'tauri-app', 'src', 'tauri-providers.ts'), 'utf8')
+  const registry = readFileSync(resolve(repoRoot, 'tauri-app', 'src', 'tauri-tabby-session-registry.ts'), 'utf8')
 
   for (const requiredEntry of [
     'PlatformService.exec(app, argv)',
@@ -959,7 +959,7 @@ test('Tauri unsupported surface is tracked and source-of-truth consistent', () =
 })
 
 test('Tauri unsupported SSH matrix enumerates each provider feature with status and gates', () => {
-  const matrix = readFileSync(resolve(repoRoot, '.omx', 'plans', 'tauri-unsupported-matrix.md'), 'utf8')
+  const matrix = readFileSync(resolve(repoRoot, 'docs', 'tauri', 'migration', 'tauri-unsupported-matrix.md'), 'utf8')
 
   for (const status of [
     'graph-excluded',
@@ -1002,8 +1002,8 @@ test('Tauri unsupported SSH matrix enumerates each provider feature with status 
 })
 
 test('Tauri SSH frontend exposes typed keyboard-interactive prompts instead of Subject<never>', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const providers = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src', 'tauri-providers.ts'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const providers = readFileSync(resolve(repoRoot, 'tauri-app', 'src', 'tauri-providers.ts'), 'utf8')
 
   assert.match(tauriHostSource, /KeyboardInteractivePrompt/, 'Tauri host must use the shared KeyboardInteractivePrompt contract')
   assert.doesNotMatch(tauriHostSource, /keyboardInteractivePrompt\s*=\s*new Subject<never>\(\)/, 'keyboard-interactive prompt stream must not be Subject<never>')
@@ -1013,10 +1013,10 @@ test('Tauri SSH frontend exposes typed keyboard-interactive prompts instead of S
 })
 
 test('Tauri SSH port forwarding is provider-backed for local dynamic and remote modes', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const providers = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src', 'tauri-providers.ts'), 'utf8')
-  const mainSource = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
-  const sshSource = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const providers = readFileSync(resolve(repoRoot, 'tauri-app', 'src', 'tauri-providers.ts'), 'utf8')
+  const mainSource = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const sshSource = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'ssh.rs'), 'utf8')
 
   assert.match(tauriHostSource, /PortForwardType\.Local/, 'Tauri host must distinguish local forwards from unsupported forward types')
   assert.match(tauriHostSource, /PortForwardType\.Dynamic/, 'Tauri host must distinguish dynamic SOCKS forwards from unsupported forward types')
@@ -1042,8 +1042,8 @@ test('Tauri SSH port forwarding is provider-backed for local dynamic and remote 
 })
 
 test('SSH profile settings gates unsupported Tauri SSH controls through a capability snapshot', () => {
-  const settingsSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshProfileSettings.component.ts'), 'utf8')
-  const settingsTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshProfileSettings.component.pug'), 'utf8')
+  const settingsSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshProfileSettings.component.ts'), 'utf8')
+  const settingsTemplate = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshProfileSettings.component.pug'), 'utf8')
 
   for (const feature of [
     'agentAuth',
@@ -1087,8 +1087,8 @@ test('SSH profile settings gates unsupported Tauri SSH controls through a capabi
 })
 
 test('Tauri SSH port-forwarding editor disables unsupported forward types per provider', () => {
-  const source = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshPortForwardingConfig.component.ts'), 'utf8')
-  const template = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshPortForwardingConfig.component.pug'), 'utf8')
+  const source = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshPortForwardingConfig.component.ts'), 'utf8')
+  const template = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshPortForwardingConfig.component.pug'), 'utf8')
 
   assert.match(source, /@Input\(\)\s+supportedTypes:\s*PortForwardType\[\]/, 'port-forwarding editor must accept a supportedTypes capability list')
   assert.match(source, /isForwardTypeSupported\s*\(/, 'port-forwarding editor must check forward type support before adding')
@@ -1098,9 +1098,9 @@ test('Tauri SSH port-forwarding editor disables unsupported forward types per pr
 })
 
 test('Keyboard-interactive auth exposes cancel and rejects prompts on tab/session teardown', () => {
-  const panelSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'keyboardInteractiveAuthPanel.component.ts'), 'utf8')
-  const panelTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'keyboardInteractiveAuthPanel.component.pug'), 'utf8')
-  const sshTabSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'), 'utf8')
+  const panelSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'keyboardInteractiveAuthPanel.component.ts'), 'utf8')
+  const panelTemplate = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'keyboardInteractiveAuthPanel.component.pug'), 'utf8')
+  const sshTabSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'components', 'sshTab.component.ts'), 'utf8')
 
   assert.match(panelSource, /cancel\s*\(\)\s*:\s*void[\s\S]*prompt\.reject\(\)[\s\S]*done\.emit\(/, 'keyboard-interactive panel must reject active prompt on cancel')
   assert.match(panelTemplate, /\(click\)='cancel\(\)'/, 'keyboard-interactive panel must expose a cancel button')
@@ -1110,17 +1110,17 @@ test('Keyboard-interactive auth exposes cancel and rejects prompts on tab/sessio
 })
 
 test('Tauri native platform methods are provider-backed or explicit unsupported', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const platformApi = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'api', 'platform.ts'), 'utf8')
-  const platformApiTypes = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'typings', 'api', 'platform.d.ts'), 'utf8')
-  const terminalTab = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
-  const terminalSettings = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'components', 'terminalSettingsTab.component.ts'), 'utf8')
-  const tauriHostTypes = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'typings', 'index.d.ts'), 'utf8')
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
-  const settingsTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-settings', 'src', 'components', 'settingsTab.component.pug'), 'utf8')
-  const appRoot = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'appRoot.component.ts'), 'utf8')
-  const updaterApi = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'services', 'updater.service.ts'), 'utf8')
-  const capabilities = JSON.parse(readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'capabilities', 'default.json'), 'utf8'))
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const platformApi = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'api', 'platform.ts'), 'utf8')
+  const platformApiTypes = readFileSync(resolve(repoRoot, 'tabby-core', 'typings', 'api', 'platform.d.ts'), 'utf8')
+  const terminalTab = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'api', 'baseTerminalTab.component.ts'), 'utf8')
+  const terminalSettings = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'components', 'terminalSettingsTab.component.ts'), 'utf8')
+  const tauriHostTypes = readFileSync(resolve(repoRoot, 'tabby-tauri', 'typings', 'index.d.ts'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const settingsTemplate = readFileSync(resolve(repoRoot, 'tabby-settings', 'src', 'components', 'settingsTab.component.pug'), 'utf8')
+  const appRoot = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'appRoot.component.ts'), 'utf8')
+  const updaterApi = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'services', 'updater.service.ts'), 'utf8')
+  const capabilities = JSON.parse(readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'capabilities', 'default.json'), 'utf8'))
 
   assert.match(
     platformApi,
@@ -1327,12 +1327,12 @@ test('Tauri native platform methods are provider-backed or explicit unsupported'
 })
 
 test('Tauri frameless Windows renders Tabby window controls in the tab bar', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const appRootTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'appRoot.component.pug'), 'utf8')
-  const appRootComponent = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'appRoot.component.ts'), 'utf8')
-  const titleBarTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'titleBar.component.pug'), 'utf8')
-  const windowControlsTemplate = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'windowControls.component.pug'), 'utf8')
-  const tauriCapabilities = JSON.parse(readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'capabilities', 'default.json'), 'utf8'))
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const appRootTemplate = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'appRoot.component.pug'), 'utf8')
+  const appRootComponent = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'appRoot.component.ts'), 'utf8')
+  const titleBarTemplate = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'titleBar.component.pug'), 'utf8')
+  const windowControlsTemplate = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'windowControls.component.pug'), 'utf8')
+  const tauriCapabilities = JSON.parse(readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'capabilities', 'default.json'), 'utf8'))
 
   assert.match(
     tauriHostSource,
@@ -1398,7 +1398,7 @@ test('Tauri frameless Windows renders Tabby window controls in the tab bar', () 
 })
 
 test('Tauri SFTP uploads publish live progress inside Angular and complete only after the remote commit', () => {
-  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const tauriHostSource = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
   const uploadClass = tauriHostSource.slice(
     tauriHostSource.indexOf('class TauriNativeFileUpload'),
     tauriHostSource.indexOf('class TauriNativeFileDownload'),
@@ -1426,9 +1426,9 @@ test('Tauri SFTP uploads publish live progress inside Angular and complete only 
 })
 
 test('file transfer menu shows a numeric state and never presents cancelled work as successful', () => {
-  const platformSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'api', 'platform.ts'), 'utf8')
-  const componentSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'transfersMenu.component.ts'), 'utf8')
-  const templateSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'transfersMenu.component.pug'), 'utf8')
+  const platformSource = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'api', 'platform.ts'), 'utf8')
+  const componentSource = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'transfersMenu.component.ts'), 'utf8')
+  const templateSource = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'transfersMenu.component.pug'), 'utf8')
 
   assert.match(
     platformSource,
@@ -1458,9 +1458,9 @@ test('file transfer menu shows a numeric state and never presents cancelled work
 })
 
 test('upload consumers publish success only after their destination operation finishes', () => {
-  const platformSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'api', 'platform.ts'), 'utf8')
-  const sftpSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-ssh', 'src', 'session', 'sftp.ts'), 'utf8')
-  const zmodemSource = readFileSync(resolve(repoRoot, 'tabby', 'tabby-terminal', 'src', 'features', 'zmodem.ts'), 'utf8')
+  const platformSource = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'api', 'platform.ts'), 'utf8')
+  const sftpSource = readFileSync(resolve(repoRoot, 'tabby-ssh', 'src', 'session', 'sftp.ts'), 'utf8')
+  const zmodemSource = readFileSync(resolve(repoRoot, 'tabby-terminal', 'src', 'features', 'zmodem.ts'), 'utf8')
 
   assert.match(
     platformSource,
@@ -1480,11 +1480,11 @@ test('upload consumers publish success only after their destination operation fi
 })
 
 test('Shared message box component preserves keyboard defaults and long details', () => {
-  const component = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'messageBoxModal.component.ts'), 'utf8')
-  const template = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'messageBoxModal.component.pug'), 'utf8')
-  const styles = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'components', 'messageBoxModal.component.scss'), 'utf8')
-  const coreModule = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'index.ts'), 'utf8')
-  const coreApi = readFileSync(resolve(repoRoot, 'tabby', 'tabby-core', 'src', 'api', 'index.ts'), 'utf8')
+  const component = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'messageBoxModal.component.ts'), 'utf8')
+  const template = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'messageBoxModal.component.pug'), 'utf8')
+  const styles = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'components', 'messageBoxModal.component.scss'), 'utf8')
+  const coreModule = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'index.ts'), 'utf8')
+  const coreApi = readFileSync(resolve(repoRoot, 'tabby-core', 'src', 'api', 'index.ts'), 'utf8')
 
   assert.match(component, /@HostListener\(['"]document:keydown['"]/, 'message box must own Enter while it is open')
   assert.match(component, /event\.key !== 'Enter'/, 'non-Enter keys must not activate the default button')
@@ -1502,11 +1502,11 @@ test('Shared message box component preserves keyboard defaults and long details'
 })
 
 test('Web and Tauri platforms open the shared in-app message box', () => {
-  const tauriHost = readFileSync(resolve(repoRoot, 'tabby', 'tabby-tauri', 'src', 'index.ts'), 'utf8')
-  const webPlatform = readFileSync(resolve(repoRoot, 'tabby', 'tabby-web', 'src', 'platform.ts'), 'utf8')
-  const webModule = readFileSync(resolve(repoRoot, 'tabby', 'tabby-web', 'src', 'index.ts'), 'utf8')
-  const oldWebComponent = resolve(repoRoot, 'tabby', 'tabby-web', 'src', 'components', 'messageBoxModal.component.ts')
-  const oldWebTemplate = resolve(repoRoot, 'tabby', 'tabby-web', 'src', 'components', 'messageBoxModal.component.pug')
+  const tauriHost = readFileSync(resolve(repoRoot, 'tabby-tauri', 'src', 'index.ts'), 'utf8')
+  const webPlatform = readFileSync(resolve(repoRoot, 'tabby-web', 'src', 'platform.ts'), 'utf8')
+  const webModule = readFileSync(resolve(repoRoot, 'tabby-web', 'src', 'index.ts'), 'utf8')
+  const oldWebComponent = resolve(repoRoot, 'tabby-web', 'src', 'components', 'messageBoxModal.component.ts')
+  const oldWebTemplate = resolve(repoRoot, 'tabby-web', 'src', 'components', 'messageBoxModal.component.pug')
 
   assert.match(tauriHost, /MessageBoxModalComponent[\s\S]*from 'tabby-core'/, 'Tauri must import the shared Core component')
   assert.match(tauriHost, /private ngbModal: NgbModal/, 'Tauri platform service must receive NgbModal')
@@ -1522,7 +1522,7 @@ test('Web and Tauri platforms open the shared in-app message box', () => {
 })
 
 test('Rust host no longer exposes a native message box command', () => {
-  const main = readFileSync(resolve(repoRoot, 'tabby', 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
+  const main = readFileSync(resolve(repoRoot, 'tauri-app', 'src-tauri', 'src', 'main.rs'), 'utf8')
 
   assert.doesNotMatch(main, /fn show_message_box\b/, 'Rust must not expose the obsolete native command')
   assert.doesNotMatch(main, /show_message_box,/, 'the obsolete command must not remain in the invoke handler')

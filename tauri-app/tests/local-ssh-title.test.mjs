@@ -7,10 +7,10 @@ import { tmpdir } from 'node:os'
 import test from 'node:test'
 import ts from 'typescript'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 async function importSshTitleHelper() {
-  const sourcePath = resolve(repoRoot, 'tabby', 'tabby-local', 'src', 'sshTitle.ts')
+  const sourcePath = resolve(repoRoot, 'tabby-local', 'src', 'sshTitle.ts')
   const outDir = await mkdtemp(join(tmpdir(), 'tabby-local-ssh-title-'))
   const js = ts.transpileModule(readFileSync(sourcePath, 'utf8'), {
     compilerOptions: {
@@ -49,7 +49,7 @@ test('local terminal ssh commands derive the tab title from the remote host', as
 
 test('local terminal tab wires ssh command detection before forwarding input to the session', () => {
   const source = readFileSync(
-    resolve(repoRoot, 'tabby', 'tabby-local', 'src', 'components', 'terminalTab.component.ts'),
+    resolve(repoRoot, 'tabby-local', 'src', 'components', 'terminalTab.component.ts'),
     'utf8',
   )
   const sendInputIndex = source.indexOf('sendInput (data: string|Buffer): void')

@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { test } from 'node:test'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
-const componentPath = resolve(repoRoot, 'tabby', 'tabby-settings', 'src', 'components', 'profilesSettingsTab.component.pug')
-const stylePath = resolve(repoRoot, 'tabby', 'tabby-settings', 'src', 'components', 'profilesSettingsTab.component.scss')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
+const componentPath = resolve(repoRoot, 'tabby-settings', 'src', 'components', 'profilesSettingsTab.component.pug')
+const stylePath = resolve(repoRoot, 'tabby-settings', 'src', 'components', 'profilesSettingsTab.component.scss')
 
 const componentSource = readFileSync(componentPath, 'utf8')
 const styleSource = readFileSync(stylePath, 'utf8')

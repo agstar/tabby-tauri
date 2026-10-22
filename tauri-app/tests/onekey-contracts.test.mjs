@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import test from 'node:test'
 
-const repoRoot = resolve(import.meta.dirname, '..', '..', '..')
+const repoRoot = resolve(import.meta.dirname, '..', '..')
 
 function read(path) {
   return readFileSync(resolve(repoRoot, path), 'utf8')
@@ -25,8 +25,8 @@ function methodSlice(source, methodName, nextMethodName) {
 }
 
 test('OneKey metadata and secret targets stay separate from plaintext config storage', () => {
-  const service = read('tabby/tabby-core/src/services/oneKey.service.ts')
-  const defaults = read('tabby/tabby-core/src/configDefaults.yaml')
+  const service = read('tabby-core/src/services/oneKey.service.ts')
+  const defaults = read('tabby-core/src/configDefaults.yaml')
 
   assert.match(defaults, /oneKey:\s*\n\s+entries:\s*\[\]/)
   assert.match(service, /interface OneKeyEntry[\s\S]*hasPassword: boolean/)
@@ -38,8 +38,8 @@ test('OneKey metadata and secret targets stay separate from plaintext config sto
 })
 
 test('Tauri OneKey secure provider uses native credentials without localStorage fallback', () => {
-  const tauriIndex = read('tabby/tabby-tauri/src/index.ts')
-  const tauriProviders = read('tabby/tauri-app/src/tauri-providers.ts')
+  const tauriIndex = read('tabby-tauri/src/index.ts')
+  const tauriProviders = read('tauri-app/src/tauri-providers.ts')
   const indexClass = classSlice(tauriIndex, 'TauriOneKeySecretStorageProvider')
   const providerClass = classSlice(tauriProviders, 'TauriOneKeySecretStorageProvider')
 
@@ -56,9 +56,9 @@ test('Tauri OneKey secure provider uses native credentials without localStorage 
 })
 
 test('SSH profiles can reference OneKey and Tauri resolves live password and key passphrase auth', () => {
-  const interfaces = read('tabby/tabby-ssh/src/api/interfaces.ts')
-  const profileUi = read('tabby/tabby-ssh/src/components/sshProfileSettings.component.pug')
-  const tauriIndex = read('tabby/tabby-tauri/src/index.ts')
+  const interfaces = read('tabby-ssh/src/api/interfaces.ts')
+  const profileUi = read('tabby-ssh/src/components/sshProfileSettings.component.pug')
+  const tauriIndex = read('tabby-tauri/src/index.ts')
 
   assert.match(interfaces, /credentialMode\?: 'direct'\|'oneKey'/)
   assert.match(interfaces, /oneKeyId\?: string \| null/)
@@ -75,7 +75,7 @@ test('SSH profiles can reference OneKey and Tauri resolves live password and key
 })
 
 test('OneKey SSH auth honors explicit password mode before considering configured keys', () => {
-  const tauriIndex = read('tabby/tabby-tauri/src/index.ts')
+  const tauriIndex = read('tabby-tauri/src/index.ts')
   const createRequest = methodSlice(tauriIndex, 'private async createConnectRequest', 'private async loadSavedPassword')
   const passwordBranch = createRequest.indexOf("options.auth === 'password'")
   const privateKeyBranch = createRequest.indexOf("options.auth === 'publicKey'")
@@ -89,9 +89,9 @@ test('OneKey SSH auth honors explicit password mode before considering configure
 })
 
 test('duplicating non-OneKey SSH profiles copies the saved password into the new credential target', () => {
-  const providerApi = read('tabby/tabby-core/src/api/profileProvider.ts')
-  const profilesSettings = read('tabby/tabby-settings/src/components/profilesSettingsTab.component.ts')
-  const sshProfiles = read('tabby/tabby-ssh/src/profiles.ts')
+  const providerApi = read('tabby-core/src/api/profileProvider.ts')
+  const profilesSettings = read('tabby-settings/src/components/profilesSettingsTab.component.ts')
+  const sshProfiles = read('tabby-ssh/src/profiles.ts')
 
   assert.match(providerApi, /duplicateProfile \(source: P, destination: P\): void\|Promise<void> \{ \}/)
   assert.match(profilesSettings, /await this\.duplicateProfileSecrets\(base, result\)/)
@@ -108,9 +108,9 @@ test('duplicating non-OneKey SSH profiles copies the saved password into the new
 })
 
 test('terminal-wide OneKey prompt detection uses a non-blocking inline chooser and validates active session before send', () => {
-  const middleware = read('tabby/tabby-terminal/src/middleware/oneKeyPromptDetection.ts')
-  const promptService = read('tabby/tabby-terminal/src/services/oneKeyPrompt.service.ts')
-  const terminalTab = read('tabby/tabby-terminal/src/api/baseTerminalTab.component.ts')
+  const middleware = read('tabby-terminal/src/middleware/oneKeyPromptDetection.ts')
+  const promptService = read('tabby-terminal/src/services/oneKeyPrompt.service.ts')
+  const terminalTab = read('tabby-terminal/src/api/baseTerminalTab.component.ts')
 
   assert.match(middleware, /extends SessionMiddleware/)
   assert.match(middleware, /password\b/)
