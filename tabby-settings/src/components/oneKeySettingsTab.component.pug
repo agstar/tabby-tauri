@@ -1,0 +1,86 @@
+.d-flex.align-items-center.mb-3
+    h3.m-0 OneKey
+    button.btn.btn-primary.ms-auto((click)='createEntry()')
+        i.fas.fa-plus
+        span.ms-2(translate) Add
+
+.alert.alert-warning(*ngIf='secureStorageAvailable === false', translate)
+    Secure credential storage is unavailable. OneKey passwords and passphrases cannot be saved on this host.
+
+.d-flex.gap-3
+    .w-50
+        input.form-control.mb-2(
+            type='search',
+            [(ngModel)]='filter',
+            [placeholder]='"Search OneKey" | translate'
+        )
+        .list-group
+            button.list-group-item.list-group-item-action(
+                *ngFor='let entry of filteredEntries',
+                [class.active]='entry.id === selectedId',
+                (click)='select(entry)'
+            )
+                .d-flex.align-items-center
+                    i.fas.fa-key.me-2
+                    .me-auto
+                        .fw-bold {{entry.name}}
+                        .small.text-muted {{entry.username || ('No username' | translate)}}
+                    span.badge.bg-secondary.ms-2(*ngIf='entry.hasPassword', translate) Password
+                    span.badge.bg-secondary.ms-2(*ngIf='entry.privateKeys.length') {{getKeyCountLabel(entry)}}
+
+        .text-center.text-muted.p-4(*ngIf='!entries.length')
+            i.fas.fa-key.fa-2x.mb-2
+            div(translate) No OneKey credentials yet
+
+    .w-50(*ngIf='selectedEntry as entry')
+        .card
+            .card-body
+                .d-flex.align-items-center.mb-3
+                    h5.m-0 {{entry.name}}
+                    .ms-auto(ngbDropdown)
+                        button.btn.btn-link(ngbDropdownToggle)
+                            i.fas.fa-ellipsis-v
+                        div(ngbDropdownMenu)
+                            button(ngbDropdownItem, (click)='renameEntry(entry)')
+                                i.fas.fa-fw.fa-pencil-alt
+                                span(translate) Rename
+                            button(ngbDropdownItem, (click)='deleteEntry(entry)')
+                                i.fas.fa-fw.fa-trash
+                                span(translate) Delete
+
+                .form-line
+                    .header
+                        .title(translate) Username
+                        .description {{entry.username || ('Not set' | translate)}}
+                    button.btn.btn-secondary.ms-4((click)='setUsername(entry)', translate) Edit
+
+                .form-line
+                    .header
+                        .title(translate) Password
+                        .description {{entry.hasPassword ? ('Saved' | translate) : ('Not set' | translate)}}
+                    button.btn.btn-success.ms-4(*ngIf='!entry.hasPassword', (click)='setPassword(entry)', [disabled]='!canStoreSecrets()')
+                        i.fas.fa-key
+                        span(translate) Set password
+                    button.btn.btn-secondary.ms-4(*ngIf='entry.hasPassword', (click)='setPassword(entry)', [disabled]='!canStoreSecrets()')
+                        i.fas.fa-key
+                        span(translate) Replace
+                    button.btn.btn-danger.ms-2(*ngIf='entry.hasPassword', (click)='deletePassword(entry)', [disabled]='!canStoreSecrets()')
+                        i.fas.fa-trash-alt
+                        span(translate) Forget
+
+                h5.mt-4(translate) Private keys
+                .list-group.mb-2
+                    .list-group-item(*ngFor='let key of entry.privateKeys')
+                        .d-flex.align-items-center
+                            i.fas.fa-key.me-2
+                            .me-auto
+                                .no-wrap {{key.path}}
+                            .small.text-muted {{key.hasPassphrase ? ('Passphrase saved' | translate) : ('No passphrase' | translate)}}
+                            .btn-group
+                                button.btn.btn-secondary.btn-sm((click)='setPrivateKeyPassphrase(entry, key)', [disabled]='!canStoreSecrets()', translate) Passphrase
+                                button.btn.btn-outline-danger.btn-sm(*ngIf='key.hasPassphrase', (click)='deletePrivateKeyPassphrase(entry, key)', [disabled]='!canStoreSecrets()', translate) Forget
+                                button.btn.btn-link.btn-sm((click)='removePrivateKey(entry, key)')
+                                    i.fas.fa-trash
+                button.btn.btn-secondary((click)='addPrivateKey(entry)')
+                    i.fas.fa-folder-open
+                    span(translate) Add a private key

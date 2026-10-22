@@ -100,7 +100,7 @@ export class DebugDecorator extends TerminalDecorator {
     }
 
     private async doPasteState (terminal: BaseTerminalTabComponent<any>) {
-        let data = this.platform.readClipboard()
+        let data = await this.platform.readClipboard()
         if (data) {
             if (data.startsWith('`')) {
                 data = data.substring(3, data.length - 3)
@@ -126,7 +126,7 @@ export class DebugDecorator extends TerminalDecorator {
     }
 
     private async doPasteOutput (terminal: BaseTerminalTabComponent<any>) {
-        let data = this.platform.readClipboard()
+        let data = await this.platform.readClipboard()
         if (data) {
             if (data.startsWith('`')) {
                 data = data.substring(3, data.length - 3)

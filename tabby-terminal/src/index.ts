@@ -99,10 +99,12 @@ export * from './api/interfaces'
 export * from './middleware/streamProcessing'
 export * from './middleware/loginScriptProcessing'
 export * from './middleware/oscProcessing'
+export * from './middleware/oneKeyPromptDetection'
 export * from './middleware/utf8Splitter'
 export * from './middleware/inputProcessing'
 export * from './api/middleware'
 export * from './session'
 export { LoginScriptsSettingsComponent, StreamProcessingSettingsComponent }
 export { MultifocusService } from './services/multifocus.service'
+export { OneKeyPromptService } from './services/oneKeyPrompt.service'
 export { TerminalColorScheme } from 'tabby-core' // was previously defined in this plugin

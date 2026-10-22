@@ -1,5 +1,5 @@
 import { MenuItemOptions } from 'tabby-core'
-import { SFTPFile } from '../session/sftp'
+import { SFTPFile } from '../session/types'
 import { SFTPPanelComponent } from '../components/sftpPanel.component'
 
 /**

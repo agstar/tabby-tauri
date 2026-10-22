@@ -1,17 +1,17 @@
 import { Injectable } from '@angular/core'
 import { SSHProfile } from '../api'
 import { PartialProfile, ProfilesService } from 'tabby-core'
-import { SSHSession } from '../session/ssh'
+import { SSHConnectionLike } from '../session/types'
 
 @Injectable({ providedIn: 'root' })
 export class SSHMultiplexerService {
-    private sessions = new Map<string, SSHSession>()
+    private sessions = new Map<string, SSHConnectionLike>()
 
     constructor (
         private profilesService: ProfilesService,
     ) { }
 
-    async addSession (session: SSHSession): Promise<void> {
+    async addSession (session: SSHConnectionLike): Promise<void> {
         const key = await this.getMultiplexerKey(session.profile)
         this.sessions.set(key, session)
         session.willDestroy$.subscribe(() => {
@@ -21,7 +21,7 @@ export class SSHMultiplexerService {
         })
     }
 
-    async getSession (profile: PartialProfile<SSHProfile>): Promise<SSHSession|null> {
+    async getSession (profile: PartialProfile<SSHProfile>): Promise<SSHConnectionLike|null> {
         const fullProfile = this.profilesService.getConfigProxyForProfile(profile)
         const key = await this.getMultiplexerKey(fullProfile)
         return this.sessions.get(key) ?? null

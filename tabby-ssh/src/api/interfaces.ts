@@ -17,6 +17,8 @@ export interface SSHProfileOptions extends LoginScriptsOptions {
     host: string
     port?: number
     user: string
+    credentialMode?: 'direct'|'oneKey'
+    oneKeyId?: string | null
     auth: null|'password'|'publicKey'|'agent'|'keyboardInteractive'
     password: string
     privateKeys: string[]

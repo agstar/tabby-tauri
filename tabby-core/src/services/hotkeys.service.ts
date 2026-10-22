@@ -4,7 +4,17 @@ import { HotkeyDescription, HotkeyProvider } from '../api/hotkeyProvider'
 import { KeyEventData, getKeyName, Keystroke, KeyName, getKeystrokeName, metaKeyName, altKeyName } from './hotkeys.util'
 import { ConfigService } from './config.service'
 import { HostAppService, Platform } from '../api/hostApp'
-import { deprecate } from 'util'
+
+function deprecate <T extends (...args: any[]) => any> (fn: T, message: string): T {
+    let warned = false
+    return function (this: unknown, ...args: Parameters<T>): ReturnType<T> {
+        if (!warned) {
+            console.warn(message)
+            warned = true
+        }
+        return fn.apply(this, args)
+    } as T
+}
 
 export interface PartialHotkeyMatch {
     id: string

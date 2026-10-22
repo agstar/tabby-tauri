@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g transform="translate(512 512) scale(1.45) translate(-512 -512)">
+    <path d="M236 340 614 558 498 625 236 474Z" fill="#c6f6ff"/>
+    <path d="M498 625 614 558 786 459 786 595 438 796 330 734Z" fill="#5ad1d4"/>
+    <path d="M236 474 498 625 392 686 236 596Z" fill="#6090af"/>
+    <path d="M330 734 438 796 276 796 194 748Z" fill="#12303e" opacity=".9"/>
+    <path d="M236 340 614 558 530 607 236 438Z" fill="#aaeaff"/>
+    <path d="M242 790H782" stroke="#ff6f48" stroke-width="124" stroke-linecap="round"/>
+    <path d="M604 636 678 678 604 720 530 678Z" fill="#ff835d"/>
+    <path d="M572 678h64M604 646v64" stroke="#fff4ec" stroke-width="36" stroke-linecap="round"/>
+  </g>
+</svg>

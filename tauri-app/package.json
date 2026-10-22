@@ -1,0 +1,41 @@
+{
+  "name": "tabby-tauri",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check:no-electron": "node scripts/check-no-electron-imports.mjs src && node scripts/check-tauri-node-electron-graph.mjs",
+    "smoke:ssh-e2e": "node scripts/measure-ssh-acceptance.mjs",
+    "smoke:ssh-command-matrix": "node scripts/measure-ssh-command-matrix.mjs",
+    "smoke:ssh-top-stress": "node scripts/measure-ssh-top-stress.mjs",
+    "measure:webview-memory": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/measure-webview-memory.ps1",
+    "measure:process-tree": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/measure-process-tree.ps1",
+    "measure:idle-cpu": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/measure-idle-cpu.ps1",
+    "measure:responsiveness": "node scripts/measure-renderer-responsiveness.mjs",
+    "measure:command-output": "node scripts/measure-command-output-latency.mjs",
+    "measure:scenario-matrix": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/measure-scenario-matrix.ps1",
+    "soak:ssh-idle": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ssh-idle-soak.ps1",
+    "compare:memory": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/compare-memory-baseline.ps1",
+    "render:host-module": "node scripts/render-tauri-host-module.mjs",
+    "dev": "npm run dev:tabby",
+    "build": "tauri build",
+    "dev:web": "npm run dev:web:probe --",
+    "build:web": "npm run build:web:probe",
+    "build:tabby-web": "cd .. && yarn webpack --config app/webpack.config.tauri.mjs",
+    "measure:display-parity": "node scripts/measure-display-parity.mjs",
+    "dev:tabby": "tauri dev --no-watch",
+    "dev:probe": "tauri dev --config src-tauri/tauri.probe.conf.json",
+    "dev:web:probe": "vite --host 127.0.0.1 --port 1420",
+    "build:web:probe": "vite build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "rxjs": "^7.8.2",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  }
+}

@@ -6,3 +6,20 @@ profile-icon {
 profile-icon + * {
     margin-left: 10px;
 }
+
+.profile-actions {
+    flex-shrink: 0;
+}
+
+.profile-actions-toggle {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-actions-toggle i {
+    pointer-events: none;
+}

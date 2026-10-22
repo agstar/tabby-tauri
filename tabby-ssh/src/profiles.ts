@@ -17,6 +17,8 @@ export class SSHProfilesService extends QuickConnectProfileProvider<SSHProfile> 
             host: '',
             port: 22,
             user: 'root',
+            credentialMode: 'direct',
+            oneKeyId: null,
             auth: null,
             password: null,
             privateKeys: [],
@@ -112,6 +114,27 @@ export class SSHProfilesService extends QuickConnectProfileProvider<SSHProfile> 
 
     deleteProfile (profile: SSHProfile): void {
         this.passwordStorage.deletePassword(profile)
+    }
+
+    async duplicateProfile (source: SSHProfile, destination: SSHProfile): Promise<void> {
+        if (this.isOneKeyProfile(source) || this.isOneKeyProfile(destination)) {
+            return
+        }
+        if (!this.usesPasswordCredential(source)) {
+            return
+        }
+        const password = await this.passwordStorage.loadPassword(source)
+        if (password) {
+            await this.passwordStorage.savePassword(destination, password)
+        }
+    }
+
+    private isOneKeyProfile (profile: SSHProfile): boolean {
+        return profile.options.credentialMode === 'oneKey' || !!profile.options.oneKeyId
+    }
+
+    private usesPasswordCredential (profile: SSHProfile): boolean {
+        return profile.options.auth === 'password' || !profile.options.auth || !!profile.options.password
     }
 
     quickConnect (query: string): PartialProfile<SSHProfile> {

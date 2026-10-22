@@ -16,7 +16,7 @@
                                 .text-muted {{homeBase.appVersion}}
 
                                 button.btn.btn-secondary.mt-3.mb-2(
-                                    *ngIf='!updateAvailable && hostApp.platform !== Platform.Web',
+                                    *ngIf='updater.isAvailable && !updateAvailable && hostApp.platform !== Platform.Web',
                                     (click)='checkForUpdates()',
                                     [disabled]='checkingForUpdate'
                                 )
@@ -26,7 +26,7 @@
                                     span(translate) Check for updates
 
                                 button.btn.btn-info.mt-3.mb-2(
-                                    *ngIf='updateAvailable',
+                                    *ngIf='updater.isAvailable && updateAvailable',
                                     (click)='updater.update()',
                                 )
                                     i.fas.fa-sync
@@ -88,7 +88,7 @@
                             (ngModelChange)='saveConfiguration(true)',
                         )
 
-                    .form-line(*ngIf='hostApp.platform !== Platform.Web')
+                    .form-line(*ngIf='updater.isAvailable && hostApp.platform !== Platform.Web')
                         .header
                             .title(translate) Automatic Updates
                             .description(translate) Enable automatic installation of updates when they become available.

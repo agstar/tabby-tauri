@@ -1229,3 +1229,17 @@ msgstr ""
 #: tabby-terminal/src/hotkeys.ts:58
 msgid "Zoom out"
 msgstr ""
+
+#: locale/tmp-html/tabby-ssh/src/components/sshPortForwardingConfig.component.html:43
+#: locale/tmp-html/tabby-ssh/src/components/sshPortForwardingConfig.component.html:5
+msgctxt "[Dynamic] port forwarding"
+msgid "id.port-forwarding.dynamic"
+msgstr ""
+
+#: tabby-core/src/components/transfersMenu.component.pug
+msgid "Completed"
+msgstr ""
+
+#: tabby-core/src/components/transfersMenu.component.pug
+msgid "Failed"
+msgstr ""

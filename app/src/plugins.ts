@@ -96,6 +96,10 @@ export function initModuleLookup (userPluginsPath: string): void {
 const PLUGIN_PREFIX = 'tabby-'
 const LEGACY_PLUGIN_PREFIX = 'terminus-'
 
+function isTauriRuntime (): boolean {
+    return Boolean((globalThis as any).__TAURI_INTERNALS__ ?? (globalThis as any).__TAURI__ ?? (globalThis as any).window?.__TAURI_INTERNALS__)
+}
+
 async function getCandidateLocationsInPluginDir (pluginDir: any): Promise<{ pluginDir: string, packageName: string }[]> {
     const candidateLocations: { pluginDir: string, packageName: string }[] = []
 
@@ -111,6 +115,10 @@ async function getCandidateLocationsInPluginDir (pluginDir: any): Promise<{ plug
         const promises = []
 
         for (const packageName of pluginNames) {
+            if (packageName === 'tabby-tauri' && !isTauriRuntime()) {
+                continue
+            }
+
             if ((packageName.startsWith(PLUGIN_PREFIX) || packageName.startsWith(LEGACY_PLUGIN_PREFIX)) && !PLUGIN_BLACKLIST.includes(packageName)) {
                 const pluginPath = path.join(pluginDir, packageName)
                 const infoPath = path.join(pluginPath, 'package.json')

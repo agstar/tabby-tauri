@@ -1,2 +1,5 @@
-.title((dblclick)='hostWindow.toggleMaximize()') Tabby
+.title(
+    (dblclick)='hostWindow.toggleMaximize()',
+    [attr.data-tauri-drag-region]='shouldUseTauriNativeDragRegions ? "" : null'
+) Tabby
 window-controls(*ngIf="!hideControls")

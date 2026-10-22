@@ -1,4 +1,3 @@
-import * as russh from 'russh'
 import { marker as _ } from '@biesbjerg/ngx-translate-extract-marker'
 import colors from 'ansi-colors'
 import { Component, Injector, HostListener } from '@angular/core'
@@ -6,10 +5,10 @@ import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { GetRecoveryTokenOptions, Platform, ProfilesService, RecoveryToken } from 'tabby-core'
 import { BaseTerminalTabComponent, ConnectableTerminalTabComponent } from 'tabby-terminal'
 import { SSHService } from '../services/ssh.service'
-import { KeyboardInteractivePrompt, SSHSession } from '../session/ssh'
+import { KeyboardInteractivePrompt, SSHConnectionLike } from '../session/types'
 import { SSHPortForwardingModalComponent } from './sshPortForwardingModal.component'
 import { SSHProfile } from '../api'
-import { SSHShellSession } from '../session/shell'
+import { SSHSessionFactory, SSHShellLikeSession, SSHShellSessionFactory } from '../session/factory'
 import { SSHMultiplexerService } from '../services/sshMultiplexer.service'
 
 /** @hidden */
@@ -24,8 +23,8 @@ import { SSHMultiplexerService } from '../services/sshMultiplexer.service'
 })
 export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile> {
     Platform = Platform
-    sshSession: SSHSession|null = null
-    session: SSHShellSession|null = null
+    sshSession: SSHConnectionLike|null = null
+    session: SSHShellLikeSession|null = null
     sftpPanelVisible = false
     sftpPath = '/'
     enableToolbar = true
@@ -37,11 +36,11 @@ export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile>
         private ngbModal: NgbModal,
         private profilesService: ProfilesService,
         private sshMultiplexer: SSHMultiplexerService,
+        private sshSessionFactory: SSHSessionFactory,
+        private sshShellSessionFactory: SSHShellSessionFactory,
     ) {
         super(injector)
-        this.sessionChanged$.subscribe(() => {
-            this.activeKIPrompt = null
-        })
+        this.sessionChanged$.subscribe(() => this.clearActiveKIPrompt())
     }
 
     ngOnInit (): void {
@@ -71,12 +70,18 @@ export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile>
         })
 
         super.ngOnInit()
+        this.subscribeUntilDestroyed(this.focused$, () => this.scheduleTerminalSizeResync())
+        this.subscribeUntilDestroyed(this.visibility$, visible => {
+            if (visible) {
+                this.scheduleTerminalSizeResync()
+            }
+        })
     }
 
-    async setupOneSession (injector: Injector, profile: SSHProfile, multiplex = true): Promise<SSHSession> {
+    async setupOneSession (injector: Injector, profile: SSHProfile, multiplex = true): Promise<SSHConnectionLike> {
         let session = await this.sshMultiplexer.getSession(profile)
         if (!multiplex || !session || !profile.options.reuseSession) {
-            session = new SSHSession(injector, profile)
+            session = await this.sshSessionFactory.create(injector, profile)
 
             if (profile.options.jumpHost) {
                 const jumpConnection = (await this.profilesService.getProfiles()).find(x => x.id === profile.options.jumpHost)
@@ -98,17 +103,8 @@ export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile>
                     }
                 })
 
-                if (!(jumpSession.ssh instanceof russh.AuthenticatedSSHClient)) {
-                    throw new Error('Jump session is not authenticated yet somehow')
-                }
-
                 try {
-                    session.jumpChannel = await jumpSession.ssh.openTCPForwardChannel({
-                        addressToConnectTo: profile.options.host,
-                        portToConnectTo: profile.options.port ?? 22,
-                        originatorAddress: '127.0.0.1',
-                        originatorPort: 0,
-                    })
+                    session.setJumpChannel(await jumpSession.openTCPForwardChannelTo(profile.options.host, profile.options.port ?? 22))
                 } catch (err) {
                     this.notifications.error(
                         this.translate.instant(_('Could not set up port forward on {host}'), { host: jumpConnection.name }),
@@ -125,10 +121,11 @@ export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile>
         })
 
         this.attachSessionHandler(session.willDestroy$, () => {
-            this.activeKIPrompt = null
+            this.clearActiveKIPrompt()
         })
 
         this.attachSessionHandler(session.keyboardInteractivePrompt$, prompt => {
+            this.clearActiveKIPrompt()
             this.activeKIPrompt = prompt
             setTimeout(() => {
                 this.frontend?.scrollToBottom()
@@ -161,9 +158,30 @@ export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile>
         }
     }
 
+    private clearActiveKIPrompt (): void {
+        if (this.activeKIPrompt) {
+            this.activeKIPrompt.reject()
+            this.activeKIPrompt = null
+        }
+    }
+
+    private scheduleTerminalSizeResync (): void {
+        for (const delay of [0, 450]) {
+            setTimeout(() => {
+                const session = this.session
+                if (!session?.open) {
+                    return
+                }
+                session.resize(this.size.columns, this.size.rows)
+                session.resyncSize?.()
+            }, delay)
+        }
+    }
+
     private async initializeSessionMaybeMultiplex (multiplex = true): Promise<void> {
         this.sshSession = await this.setupOneSession(this.injector, this.profile, multiplex)
-        const session = new SSHShellSession(this.injector, this.sshSession, this.profile)
+        const session = await this.sshShellSessionFactory.create(this.injector, this.sshSession, this.profile)
+        session.resize(this.size.columns, this.size.rows)
 
         this.setSession(session)
         this.attachSessionHandler(session.serviceMessage$, msg => {
@@ -186,7 +204,7 @@ export class SSHTabComponent extends ConnectableTerminalTabComponent<SSHProfile>
                 await this.initializeSessionMaybeMultiplex(false)
             } catch (e) {
                 console.error('SSH session initialization failed', e)
-                this.write(colors.black.bgRed(' X ') + ' ' + colors.red(e.message) + '\r\n')
+                await this.write(colors.black.bgRed(' X ') + ' ' + colors.red(e.message) + '\r\n')
                 return
             }
         }

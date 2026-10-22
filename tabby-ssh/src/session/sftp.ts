@@ -4,18 +4,11 @@ import { posix as posixPath } from 'path'
 import { Injector } from '@angular/core'
 import { FileDownload, FileUpload, Logger, LogService } from 'tabby-core'
 import * as russh from 'russh'
+import type { SFTPFile as SFTPFileShape, SFTPFileHandleLike, SFTPSession as SFTPSessionLike } from './types'
 
-export interface SFTPFile {
-    name: string
-    fullPath: string
-    isDirectory: boolean
-    isSymlink: boolean
-    mode: number
-    size: number
-    modified: Date
-}
+export type { SFTPFile } from './types'
 
-export class SFTPFileHandle {
+export class SFTPFileHandle implements SFTPFileHandleLike {
     position = 0
 
     constructor (
@@ -42,7 +35,7 @@ export class SFTPFileHandle {
     }
 }
 
-export class SFTPSession {
+export class SFTPSession implements SFTPSessionLike {
     get closed$ (): Observable<void> { return this.closed }
     private closed = new Subject<void>()
     private logger: Logger
@@ -55,7 +48,7 @@ export class SFTPSession {
         })
     }
 
-    async readdir (p: string): Promise<SFTPFile[]> {
+    async readdir (p: string): Promise<SFTPFileShape[]> {
         this.logger.debug('readdir', p)
         const entries = await this.sftp.readDirectory(p)
         return entries.map(entry => this._makeFile(
@@ -68,7 +61,16 @@ export class SFTPSession {
         return this.sftp.readlink(p)
     }
 
-    async stat (p: string): Promise<SFTPFile> {
+    async realpath (p: string): Promise<string> {
+        this.logger.debug('realpath', p)
+        const nativeSftp = this.sftp as unknown as { realpath?: (path: string) => Promise<string> }
+        if (nativeSftp.realpath) {
+            return nativeSftp.realpath(p)
+        }
+        return p === '.' ? '/' : posixPath.resolve(p)
+    }
+
+    async stat (p: string): Promise<SFTPFileShape> {
         this.logger.debug('stat', p)
         const stats = await this.sftp.stat(p)
         return {
@@ -125,6 +127,7 @@ export class SFTPSession {
             await handle.close()
             await this.unlink(path).catch(() => null)
             await this.rename(tempPath, path)
+            transfer.setCompleted(true)
             transfer.close()
         } catch (e) {
             transfer.setStatus(e instanceof Error ? e.message : String(e))
@@ -154,7 +157,7 @@ export class SFTPSession {
         }
     }
 
-    private _makeFile (p: string, entry: russh.SFTPDirectoryEntry): SFTPFile {
+    private _makeFile (p: string, entry: russh.SFTPDirectoryEntry): SFTPFileShape {
         return {
             fullPath: p,
             name: posixPath.basename(p),

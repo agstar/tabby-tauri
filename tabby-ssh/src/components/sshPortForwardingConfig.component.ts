@@ -9,6 +9,7 @@ import { ForwardedPortConfig, PortForwardType } from '../api'
 })
 export class SSHPortForwardingConfigComponent {
     @Input() model: ForwardedPortConfig[]
+    @Input() supportedTypes: PortForwardType[] = [PortForwardType.Local, PortForwardType.Remote, PortForwardType.Dynamic]
     @Output() forwardAdded = new EventEmitter<ForwardedPortConfig>()
     @Output() forwardRemoved = new EventEmitter<ForwardedPortConfig>()
     newForward: ForwardedPortConfig
@@ -30,7 +31,14 @@ export class SSHPortForwardingConfigComponent {
         }
     }
 
+    isForwardTypeSupported (type: PortForwardType): boolean {
+        return this.supportedTypes.includes(type)
+    }
+
     async addForward () {
+        if (!this.isForwardTypeSupported(this.newForward.type)) {
+            return
+        }
         try {
             this.forwardAdded.emit(this.newForward)
             this.reset()

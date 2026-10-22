@@ -1,0 +1,27 @@
+[package]
+name = "tabby-tauri"
+version = "0.0.0"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+portable-pty = "0.9"
+russh = { version = "0.60.2", default-features = false, features = ["ring"] }
+russh-sftp = "2.1.0"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_System_Com", "Win32_System_DataExchange", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Memory", "Win32_System_Ole", "Win32_System_Registry", "Win32_UI_Controls_Dialogs", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_WindowsAndMessaging"] }
+aes = "0.8.4"
+base64 = "0.22.1"
+cbc = { version = "0.1.2", features = ["alloc"] }
+hex = "0.4.3"
+pbkdf2 = "0.12.2"
+ring = "0.17.14"
+sha2 = "0.10.9"
+
+[dev-dependencies]
+rand = "0.10"

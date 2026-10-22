@@ -65,6 +65,12 @@ import { SFTPCreateDirectoryModalComponent } from './components/sftpCreateDirect
 export default class SSHModule { }
 
 export * from './api'
-export { SFTPFile, SFTPSession } from './session/sftp'
+export type { SFTPDirectoryPlan, SFTPDirectoryPlanEntry, SFTPFile, SFTPSession, SSHConnectionLike } from './session/types'
+export { KeyboardInteractivePrompt } from './session/types'
+export {
+    SSHSessionFactory,
+    SSHShellSessionFactory,
+    SSHShellLikeSession,
+} from './session/factory'
 export { SFTPPanelComponent, SSHTabComponent }
 export { PasswordStorageService } from './services/passwordStorage.service'

@@ -295,11 +295,14 @@ class ZModemMiddleware extends SessionMiddleware {
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (canceled) {
                 transfer.cancel()
-            } else {
-                transfer.close()
             }
 
             await xfer.end()
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            if (!canceled) {
+                transfer.setCompleted(true)
+                transfer.close()
+            }
 
             // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
             if (canceled) {

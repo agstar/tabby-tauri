@@ -1,0 +1,43 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "es2020",
+    "target": "es2016",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+    "paths": {
+      "russh": ["app/src/tauri-guards/russh.ts"],
+      "tabby-*": ["tabby-*/src"],
+      "*": [
+        "node_modules/*",
+        "app/node_modules/*"
+      ]
+    }
+  },
+  "include": [
+    "app/src/entry.tauri.ts",
+    "app/src/app.module.ts",
+    "app/src/types/**/*.d.ts",
+    "app/src/tauri-guards/**/*.ts",
+    "app/src/tauri-polyfills/**/*.ts",
+    "app/src/tauri-providers/**/*.ts",
+    "tabby-core/src/**/*.ts",
+    "tabby-settings/src/**/*.ts",
+    "tabby-terminal/src/**/*.ts",
+    "tabby-local/src/**/*.ts",
+    "tabby-ssh/src/**/*.ts",
+    "tabby-tauri/src/**/*.ts"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/typings"
+  ],
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "enableResourceInlining": true,
+    "strictInjectionParameters": true
+  }
+}

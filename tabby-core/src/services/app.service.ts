@@ -554,6 +554,13 @@ export class AppService {
     async closeWindow (): Promise<void> {
         this.tabRecovery.enabled = false
         await this.tabRecovery.saveTabs(this.tabs)
+        // If the host can terminate the process directly (e.g. Tauri), skip tab
+        // destruction: tabs are already persisted above and will be recovered on
+        // the next launch via tabRecovery.
+        if (this.hostWindow.supportsDirectQuit) {
+            this.hostWindow.close()
+            return
+        }
         if (await this.closeAllTabs()) {
             this.hostWindow.close()
         } else {

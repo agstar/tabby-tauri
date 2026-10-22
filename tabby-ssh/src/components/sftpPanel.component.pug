@@ -43,7 +43,7 @@
     .input-group
         input.form-control(
             type='text',
-            placeholder='Filter...',
+            [placeholder]='"Filter"|translate',
             autofocus,
             [(ngModel)]='filterText',
             (input)='onFilterChange()',
@@ -60,7 +60,7 @@
         .me-auto
             strong(translate) Working directory detection
             div(translate) Learn how to allow Tabby to detect remote shell's working directory.
-        button.close((click)='dismissCWDTip()')
+        button.close(type='button', (click)='dismissCWDTip($event)')
             i.fas.fa-close
 
     div(*ngIf='!sftp', translate) Connecting

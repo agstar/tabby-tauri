@@ -15,9 +15,13 @@ import { TerminalDecorator } from './decorator'
 import { SearchPanelComponent } from '../components/searchPanel.component'
 import { MultifocusService } from '../services/multifocus.service'
 import { getTerminalBackgroundColor } from '../helpers'
+import { OneKeyPromptDetectionMiddleware } from '../middleware/oneKeyPromptDetection'
+import { OneKeyPromptAnchor, OneKeyPromptService } from '../services/oneKeyPrompt.service'
 
 
 const INACTIVE_TAB_UNLOAD_DELAY = 1000 * 30
+const INACTIVE_TERMINAL_OUTPUT_COMPACT_CHUNKS = 128
+const INACTIVE_TERMINAL_OUTPUT_COMPACT_CHARACTERS = 512 * 1024
 const OSC_FOCUS_IN = Buffer.from('\x1b[I')
 const OSC_FOCUS_OUT = Buffer.from('\x1b[O')
 
@@ -130,6 +134,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     protected translate: TranslateService
     protected multifocus: MultifocusService
     protected themes: ThemesService
+    protected oneKeyPrompt: OneKeyPromptService|null
     // Deps end
 
     protected logger: Logger
@@ -162,6 +167,9 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     }, 1000)
 
     private frontendWriteLock = Promise.resolve()
+    private oneKeyPromptDetector: { session: BaseSession, detector: OneKeyPromptDetectionMiddleware }|null = null
+    private pendingInactiveOutput: string[] = []
+    private pendingInactiveOutputCharacters = 0
 
     get input$ (): Observable<Buffer> {
         if (!this.frontend) {
@@ -209,6 +217,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
         this.translate = injector.get(TranslateService)
         this.multifocus = injector.get(MultifocusService)
         this.themes = injector.get(ThemesService)
+        this.oneKeyPrompt = injector.get(OneKeyPromptService, null, InjectFlags.Optional)
 
         this.logger = this.log.create('baseTerminalTab')
         this.setTitle(this.translate.instant('Terminal'))
@@ -442,11 +451,24 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
             this.multifocus.cancel()
         })
 
+        this.visibility$.subscribe(visible => {
+            if (visible) {
+                void this.flushPendingInactiveOutput()
+            }
+        })
+
         this.visibility$
             .pipe(debounce(visibility => interval(visibility ? 0 : INACTIVE_TAB_UNLOAD_DELAY)))
             .subscribe(visibility => {
-                if (visibility && this.frontend instanceof XTermFrontend) {
-                    this.frontend.reactivate()
+                if (this.frontend instanceof XTermFrontend) {
+                    if (visibility) {
+                        this.frontend.reactivate()
+                    } else {
+                        this.frontend.xterm.element?.querySelectorAll('canvas').forEach(c => {
+                            c.height = c.width = 0
+                            c.style.height = c.style.width = '0px'
+                        })
+                    }
                 }
             })
     }
@@ -478,10 +500,44 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
         return items
     }
 
+    getOneKeyPromptAnchor (): OneKeyPromptAnchor|null {
+        if (!(this.frontend instanceof XTermFrontend)) {
+            return null
+        }
+
+        const xterm = this.frontend.xterm
+        const element = xterm.element
+        if (!element) {
+            return null
+        }
+
+        const screen = element.querySelector<HTMLElement>('.xterm-screen')
+        const screenRect = (screen ?? element).getBoundingClientRect()
+        const dimensions = (xterm as any)._core?._renderService?.dimensions?.css
+        const cellWidth = Number(dimensions?.cell?.width) ||
+            Number(dimensions?.actualCellWidth) ||
+            screenRect.width / Math.max(1, xterm.cols)
+        const cellHeight = Number(dimensions?.cell?.height) ||
+            Number(dimensions?.actualCellHeight) ||
+            screenRect.height / Math.max(1, xterm.rows)
+
+        return {
+            left: screenRect.left + Math.max(0, xterm.buffer.active.cursorX) * cellWidth,
+            top: screenRect.top + Math.max(0, xterm.buffer.active.cursorY) * cellHeight,
+            lineHeight: cellHeight,
+            terminalElement: element,
+        }
+    }
+
+    focusTerminal (): void {
+        this.frontend?.focus()
+    }
+
     /**
      * Feeds input into the active session
      */
     sendInput (data: string|Buffer): void {
+        this.oneKeyPrompt?.handleTerminalInput(this)
         if (!(data instanceof Buffer)) {
             data = Buffer.from(data, 'utf-8')
         }
@@ -495,6 +551,10 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
      * Feeds input into the terminal frontend
      */
     async write (data: string): Promise<void> {
+        if (!this.visibility.value) {
+            this.queueInactiveOutput(data)
+            return
+        }
         this.frontendWriteLock = this.frontendWriteLock.then(() =>
             this.withSpinnerPaused(() => this.writeRaw(data)))
         await this.frontendWriteLock
@@ -517,11 +577,44 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
             }
         }
 
-        await this.frontend.write(data)
+        await this.zone.runOutsideAngular(() => this.frontend!.write(data))
+    }
+
+    private queueInactiveOutput (data: string): void {
+        if (!data) {
+            return
+        }
+        this.pendingInactiveOutput.push(data)
+        this.pendingInactiveOutputCharacters += data.length
+        if (
+            this.pendingInactiveOutput.length >= INACTIVE_TERMINAL_OUTPUT_COMPACT_CHUNKS ||
+            this.pendingInactiveOutputCharacters >= INACTIVE_TERMINAL_OUTPUT_COMPACT_CHARACTERS
+        ) {
+            const compacted = this.pendingInactiveOutput.join('')
+            this.pendingInactiveOutput = [compacted]
+            this.pendingInactiveOutputCharacters = compacted.length
+        }
+    }
+
+    private async flushPendingInactiveOutput (): Promise<void> {
+        const pending = this.pendingInactiveOutput.splice(0)
+        this.pendingInactiveOutputCharacters = 0
+        if (!pending.length) {
+            return
+        }
+        const data = pending.join('')
+        this.frontendWriteLock = this.frontendWriteLock.then(() =>
+            this.withSpinnerPaused(() => this.writeRaw(data)))
+        await this.frontendWriteLock
+    }
+
+    private clearPendingInactiveOutput (): void {
+        this.pendingInactiveOutput = []
+        this.pendingInactiveOutputCharacters = 0
     }
 
     async paste (): Promise<void> {
-        let data = this.platform.readClipboard()
+        let data = await this.platform.readClipboard()
         if (this.hostApp.platform === Platform.Windows) {
             data = data.replaceAll('\r\n', '\r')
         } else {
@@ -613,9 +706,11 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     ngOnDestroy (): void {
         super.ngOnDestroy()
         this.stopSpinner()
+        this.clearPendingInactiveOutput()
     }
 
     async destroy (): Promise<void> {
+        this.clearPendingInactiveOutput()
         this.frontend?.detach(this.content.nativeElement)
         this.frontend?.destroy()
         this.frontend = undefined
@@ -683,7 +778,15 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
             throw new Error('Frontend not ready')
         }
 
+        const refreshTerminalLayout = () => {
+            const frontend = this.frontend
+            if (frontend instanceof XTermFrontend) {
+                frontend.resizeAndRepaint()
+            }
+        }
+
         const maybeConfigure = () => {
+            refreshTerminalLayout()
             if (this.hasFocus) {
                 setTimeout(() => this.configure(), 250)
             }
@@ -758,6 +861,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     }
 
     setSession (session: BaseSession|null, destroyOnSessionClose = false): void {
+        this.clearPendingInactiveOutput()
         if (session) {
             if (this.session) {
                 this.setSession(null)
@@ -798,6 +902,7 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
         if (!this.session) {
             throw new Error('Session not set')
         }
+        this.attachOneKeyPromptDetector(this.session)
 
         // this.session.output$.bufferTime(10).subscribe((datas) => {
         this.attachSessionHandler(this.session.output$, data => {
@@ -854,7 +959,27 @@ export class BaseTerminalTabComponent<P extends BaseTerminalProfile> extends Bas
     }
 
     protected detachSessionHandlers (): void {
+        if (this.oneKeyPromptDetector) {
+            this.oneKeyPromptDetector.session.middleware.remove(this.oneKeyPromptDetector.detector)
+            this.oneKeyPromptDetector = null
+        }
         this.sessionHandlers.cancelAll()
+    }
+
+    protected attachOneKeyPromptDetector (session: BaseSession): void {
+        if (!this.oneKeyPrompt) {
+            return
+        }
+        const sessionId = `${Date.now()}:${Math.random().toString(36).slice(2)}`
+        const detector = new OneKeyPromptDetectionMiddleware(
+            sessionId,
+            this.title,
+            event => this.zone.run(() => {
+                void this.oneKeyPrompt?.handlePrompt(event, this, session)
+            }),
+        )
+        session.middleware.push(detector)
+        this.oneKeyPromptDetector = { session, detector }
     }
 
     protected startSpinner (text?: string): void {

@@ -13,7 +13,8 @@ import { HostKeyPromptModalComponent } from '../components/hostKeyPromptModal.co
 import { PasswordStorageService } from '../services/passwordStorage.service'
 import { SSHKnownHostsService } from '../services/sshKnownHosts.service'
 import { SFTPSession } from './sftp'
-import { SSHAlgorithmType, SSHProfile, AutoPrivateKeyLocator, PortForwardType } from '../api'
+import { KeyboardInteractivePrompt, SSHConnectionLike } from './types'
+import { SSHAlgorithmType, SSHProfile, AutoPrivateKeyLocator, PortForwardType, ForwardedPortConfig } from '../api'
 import { ForwardedPort } from './forwards'
 import { X11Socket } from './x11'
 import { supportedAlgorithms } from '../algorithms'
@@ -23,10 +24,7 @@ import { selectNextAuthMethod, updateAuthPlanAfterFailure } from './authMethodSe
 
 const WINDOWS_OPENSSH_AGENT_PIPE = '\\\\.\\pipe\\openssh-ssh-agent'
 
-export interface Prompt {
-    prompt: string
-    echo?: boolean
-}
+export { KeyboardInteractivePrompt, Prompt } from './types'
 
 type AuthMethod = {
     type: 'none'|'prompt-password'|'hostbased'
@@ -65,38 +63,7 @@ function sshAuthTypeForMethod (m: AuthMethod): string {
     }
 }
 
-export class KeyboardInteractivePrompt {
-    readonly responses: string[] = []
-
-    private _resolve: (value: string[]) => void
-    private _reject: (reason: any) => void
-    readonly promise = new Promise<string[]>((resolve, reject) => {
-        this._resolve = resolve
-        this._reject = reject
-    })
-
-    constructor (
-        public name: string,
-        public instruction: string,
-        public prompts: Prompt[],
-    ) {
-        this.responses = new Array(this.prompts.length).fill('')
-    }
-
-    isAPasswordPrompt (index: number): boolean {
-        return this.prompts[index].prompt.toLowerCase().includes('password') && !this.prompts[index].echo
-    }
-
-    respond (): void {
-        this._resolve(this.responses)
-    }
-
-    reject (): void {
-        this._reject(new Error('Keyboard-interactive auth rejected'))
-    }
-}
-
-export class SSHSession {
+export class SSHSession implements SSHConnectionLike {
     shell?: russh.Channel
     ssh: russh.SSHClient|russh.AuthenticatedSSHClient
     sftp?: russh.SFTP
@@ -372,6 +339,22 @@ export class SSHSession {
             this.sftp = await this.ssh.activateSFTP(await this.ssh.openSessionChannel())
         }
         return new SFTPSession(this.sftp, this.injector)
+    }
+
+    async openTCPForwardChannelTo (host: string, port: number): Promise<russh.NewChannel> {
+        if (!(this.ssh instanceof russh.AuthenticatedSSHClient)) {
+            throw new Error('Cannot open jump channel before auth')
+        }
+        return this.ssh.openTCPForwardChannel({
+            addressToConnectTo: host,
+            portToConnectTo: port,
+            originatorAddress: '127.0.0.1',
+            originatorPort: 0,
+        })
+    }
+
+    setJumpChannel (channel: unknown): void {
+        this.jumpChannel = channel as russh.NewChannel
     }
 
     async start (): Promise<void> {
@@ -798,7 +781,22 @@ export class SSHSession {
         return null
     }
 
-    async addPortForward (fw: ForwardedPort): Promise<void> {
+    private resolveForwardedPort (fw: ForwardedPortConfig): ForwardedPort {
+        if (fw instanceof ForwardedPort) {
+            return fw
+        }
+        const existing = this.forwardedPorts.find(x =>
+            x.type === fw.type &&
+            x.host === fw.host &&
+            x.port === fw.port &&
+            x.targetAddress === fw.targetAddress &&
+            x.targetPort === fw.targetPort
+        )
+        return existing ?? Object.assign(new ForwardedPort(), fw)
+    }
+
+    async addPortForward (fwConfig: ForwardedPortConfig): Promise<void> {
+        const fw = this.resolveForwardedPort(fwConfig)
         if (fw.type === PortForwardType.Local || fw.type === PortForwardType.Dynamic) {
             await fw.startLocalListener(async (accept, reject, sourceAddress, sourcePort, targetAddress, targetPort) => {
                 this.logger.info(`New connection on ${fw}`)
@@ -844,7 +842,8 @@ export class SSHSession {
         }
     }
 
-    async removePortForward (fw: ForwardedPort): Promise<void> {
+    async removePortForward (fwConfig: ForwardedPortConfig): Promise<void> {
+        const fw = this.resolveForwardedPort(fwConfig)
         if (fw.type === PortForwardType.Local || fw.type === PortForwardType.Dynamic) {
             fw.stopLocalListener()
             this.forwardedPorts = this.forwardedPorts.filter(x => x !== fw)

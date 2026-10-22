@@ -73,6 +73,8 @@ export abstract class ProfileProvider<P extends Profile> {
     abstract getDescription (profile: PartialProfile<P>): string
 
     deleteProfile (profile: P): void { }
+
+    duplicateProfile (source: P, destination: P): void|Promise<void> { }
 }
 
 export abstract class ConnectableProfileProvider<P extends ConnectableProfile> extends ProfileProvider<P> {}

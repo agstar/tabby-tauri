@@ -1,11 +1,13 @@
-import * as fs from 'fs/promises'
-import * as crypto from 'crypto'
-import * as tmp from 'tmp-promise'
 import { Injectable } from '@angular/core'
-import { ConfigService, FileProvidersService, HostAppService, Platform, PlatformService } from 'tabby-core'
-import { SSHSession } from '../session/ssh'
+import { ConfigService, FileProvidersService, HostAppService, Platform, PlatformService, PlatformTemporaryFile } from 'tabby-core'
+import { SSHConnectionLike } from '../session/types'
 import { SSHProfile } from '../api'
 import { PasswordStorageService } from './passwordStorage.service'
+
+async function sha512Hex (content: string): Promise<string> {
+    const digest = await globalThis.crypto.subtle.digest('SHA-512', new TextEncoder().encode(content))
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+}
 
 @Injectable({ providedIn: 'root' })
 export class SSHService {
@@ -27,9 +29,9 @@ export class SSHService {
         return this.detectedWinSCPPath ?? this.config.store.ssh.winSCPPath
     }
 
-    async generateWinSCPXTunnelURI (jumpHostProfile: SSHProfile|null): Promise<{ uri: string|null, privateKeyFile?: tmp.FileResult|null }> {
+    async generateWinSCPXTunnelURI (jumpHostProfile: SSHProfile|null): Promise<{ uri: string|null, privateKeyFile?: PlatformTemporaryFile|null }> {
         let uri = ''
-        let tmpFile: tmp.FileResult|null = null
+        let tmpFile: PlatformTemporaryFile|null = null
         if (jumpHostProfile) {
             uri += ';x-tunnel=1'
             const jumpHostname = jumpHostProfile.options.host
@@ -58,13 +60,13 @@ export class SSHService {
         return { uri: uri, privateKeyFile: tmpFile?? null }
     }
 
-    async getWinSCPURI (profile: SSHProfile, cwd?: string, username?: string): Promise<{ uri: string, privateKeyFile?: tmp.FileResult|null }> {
+    async getWinSCPURI (profile: SSHProfile, cwd?: string, username?: string): Promise<{ uri: string, privateKeyFile?: PlatformTemporaryFile|null }> {
         let uri = `scp://${username ?? profile.options.user}`
         const password = await this.passwordStorage.loadPassword(profile, username)
         if (password != null) {
             uri += ':' + encodeURIComponent(password)
         }
-        let tmpFile: tmp.FileResult|null = null
+        let tmpFile: PlatformTemporaryFile|null = null
         if (profile.options.jumpHost) {
             const jumpHostProfile = this.config.store.profiles.find(x => x.id === profile.options.jumpHost) ?? null
             const xTunnelParams = await this.generateWinSCPXTunnelURI(jumpHostProfile)
@@ -79,7 +81,7 @@ export class SSHService {
         return { uri, privateKeyFile: tmpFile?? null }
     }
 
-    async convertPrivateKeyFileToPuTTYFormat (profile: SSHProfile): Promise<{ passphrase: string|null, privateKeyFile: tmp.FileResult|null }> {
+    async convertPrivateKeyFileToPuTTYFormat (profile: SSHProfile): Promise<{ passphrase: string|null, privateKeyFile: PlatformTemporaryFile|null }> {
         if (profile.options.privateKeys.length === 0) {
             throw new Error('No private keys in profile')
         }
@@ -87,15 +89,17 @@ export class SSHService {
         if (!path) {
             throw new Error('WinSCP not found')
         }
-        let tmpPrivateKeyFile: tmp.FileResult|null = null
+        let tmpPrivateKeyFile: PlatformTemporaryFile|null = null
         let passphrase: string|null = null
-        const tmpFile: tmp.FileResult = await tmp.file()
         for (const pk of profile.options.privateKeys) {
             let privateKeyContent: string|null = null
             const buffer = await this.fileProviders.retrieveFile(pk)
             privateKeyContent = buffer.toString()
-            await fs.writeFile(tmpFile.path, privateKeyContent)
-            const keyHash = crypto.createHash('sha512').update(privateKeyContent).digest('hex')
+            const tmpFile = await this.platform.createTemporaryTextFile(privateKeyContent, {
+                prefix: 'tabby-winscp-key-',
+                suffix: '.key',
+            })
+            const keyHash = await sha512Hex(privateKeyContent)
             // need to pass an default passphrase, otherwise it might get stuck at the passphrase input
             const curPassphrase = await this.passwordStorage.loadPrivateKeyPassword(keyHash) ?? 'tabby'
             const winSCPcom = path.slice(0, -3) + 'com'
@@ -103,6 +107,7 @@ export class SSHService {
                 await this.platform.exec(winSCPcom, ['/keygen', tmpFile.path, '-o', tmpFile.path, '--old-passphrase', curPassphrase])
             } catch (error) {
                 console.warn('Could not convert private key ', error)
+                await tmpFile.cleanup()
                 continue
             }
             tmpPrivateKeyFile = tmpFile
@@ -112,7 +117,7 @@ export class SSHService {
         return { passphrase, privateKeyFile: tmpPrivateKeyFile }
     }
 
-    async launchWinSCP (session: SSHSession): Promise<void> {
+    async launchWinSCP (session: SSHConnectionLike): Promise<void> {
         const path = this.getWinSCPPath()
         if (!path) {
             return
@@ -120,7 +125,7 @@ export class SSHService {
         const winscpParms = await this.getWinSCPURI(session.profile, undefined, session.authUsername ?? undefined)
         const args = [winscpParms.uri]
 
-        let tmpFile: tmp.FileResult|null = null
+        let tmpFile: PlatformTemporaryFile|null = null
         try {
             if (session.activePrivateKey && session.profile.options.privateKeys.length > 0) {
                 const profile = session.profile
@@ -135,8 +140,8 @@ export class SSHService {
             }
             await this.platform.exec(path, args)
         } finally {
-            tmpFile?.cleanup()
-            winscpParms.privateKeyFile?.cleanup()
+            await tmpFile?.cleanup()
+            await winscpParms.privateKeyFile?.cleanup()
         }
     }
 }

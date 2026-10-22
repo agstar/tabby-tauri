@@ -1,8 +1,27 @@
-import * as path from 'path'
-import * as fs from 'mz/fs'
 import { Injectable } from '@angular/core'
 import { CLIHandler, CLIEvent, AppService, ConfigService, HostWindowService, ProfilesService, NotificationsService, PlatformService, TranslateService } from 'tabby-core'
 import { TerminalService } from './services/terminal.service'
+
+function resolveCliPath (cwd: string, value: string): string {
+    const isWindowsAbsolute = /^[a-zA-Z]:[\\/]/.test(value) || value.startsWith('\\\\')
+    const isPosixAbsolute = value.startsWith('/')
+    const separator = cwd.includes('\\') ? '\\' : '/'
+    const joined = isWindowsAbsolute || isPosixAbsolute ? value : `${cwd.replace(/[\\/]+$/, '')}${separator}${value}`
+    const root = /^[a-zA-Z]:[\\/]/.exec(joined)?.[0] ?? (joined.startsWith('\\\\') ? '\\\\' : (joined.startsWith('/') ? '/' : ''))
+    const body = root ? joined.slice(root.length) : joined
+    const segments: string[] = []
+    for (const segment of body.split(/[\\/]+/)) {
+        if (!segment || segment === '.') {
+            continue
+        }
+        if (segment === '..') {
+            segments.pop()
+        } else {
+            segments.push(segment)
+        }
+    }
+    return root + segments.join(separator)
+}
 
 @Injectable()
 export class TerminalCLIHandler extends CLIHandler {
@@ -22,7 +41,7 @@ export class TerminalCLIHandler extends CLIHandler {
         const op = event.argv._[0]
 
         if (op === 'open') {
-            this.handleOpenDirectory(path.resolve(event.cwd, event.argv.directory!))
+            this.handleOpenDirectory(resolveCliPath(event.cwd, event.argv.directory!))
         } else if (op === 'run') {
             await this.handleRunCommand(event.argv.command!)
         } else {
@@ -36,11 +55,10 @@ export class TerminalCLIHandler extends CLIHandler {
         if (directory.length > 1 && (directory.endsWith('/') || directory.endsWith('\\'))) {
             directory = directory.substring(0, directory.length - 1)
         }
-        if (await fs.exists(directory)) {
-            if ((await fs.stat(directory)).isDirectory()) {
-                this.terminal.openTab(undefined, directory)
-                this.hostWindow.bringToFront()
-            }
+        const metadata = await this.platform.statPath(directory)
+        if (metadata?.isDirectory) {
+            this.terminal.openTab(undefined, directory)
+            this.hostWindow.bringToFront()
         }
     }
 
@@ -81,23 +99,26 @@ export class OpenPathCLIHandler extends CLIHandler {
         private profiles: ProfilesService,
         private hostWindow: HostWindowService,
         private notifications: NotificationsService,
+        private platform: PlatformService,
     ) {
         super()
     }
 
     async handle (event: CLIEvent): Promise<boolean> {
         const op = event.argv._[0]
-        const opAsPath = op ? path.resolve(event.cwd, op) : null
+        const opAsPath = op ? resolveCliPath(event.cwd, op) : null
 
         const profile = await this.terminal.getDefaultProfile()
 
-        if (opAsPath && (await fs.lstat(opAsPath)).isDirectory()) {
+        const metadata = opAsPath ? await this.platform.statPath(opAsPath) : null
+
+        if (metadata?.isDirectory) {
             this.terminal.openTab(profile, opAsPath)
             this.hostWindow.bringToFront()
             return true
         }
 
-        if (opAsPath && await fs.exists(opAsPath)) {
+        if (opAsPath && metadata) {
             if (opAsPath.endsWith('.sh') || opAsPath.endsWith('.command')) {
                 profile.options!.pauseAfterExit = true
                 profile.options?.args?.push(opAsPath)

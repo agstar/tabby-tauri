@@ -112,6 +112,7 @@ export class TabHeaderComponent extends BaseComponent {
 
     @HostListener('contextmenu', ['$event']) async onContextMenu ($event: MouseEvent) {
         $event.preventDefault()
+        $event.stopPropagation()
         this.platform.popupContextMenu(await this.buildContextMenu(), $event)
     }
 }

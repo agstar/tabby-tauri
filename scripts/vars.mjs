@@ -28,8 +28,7 @@ export const builtinPlugins = [
     'tabby-serial',
     'tabby-telnet',
     'tabby-local',
-    'tabby-electron',
-    'tabby-plugin-manager',
+    'tabby-tauri',
     'tabby-linkifier',
     'tabby-auto-sudo-password',
 ]

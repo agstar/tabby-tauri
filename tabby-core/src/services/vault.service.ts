@@ -1,5 +1,3 @@
-import * as crypto from 'crypto'
-import { promisify } from 'util'
 import { Injectable, NgZone } from '@angular/core'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { AsyncSubject, Subject, Observable } from 'rxjs'
@@ -11,9 +9,8 @@ import { FileProvider } from '../api/fileProvider'
 import { PlatformService } from '../api/platform'
 
 const PBKDF_ITERATIONS = 100000
-const PBKDF_DIGEST = 'sha512'
+const PBKDF_WEB_DIGEST = 'SHA-512'
 const PBKDF_SALT_LENGTH = 64 / 8
-const CRYPT_ALG = 'aes-256-cbc'
 const CRYPT_KEY_LENGTH = 256 / 8
 const CRYPT_IV_LENGTH = 128 / 8
 
@@ -52,51 +49,97 @@ function migrateVaultContent (content: any): Vault {
     }
 }
 
-function deriveVaultKey (passphrase: string, salt: Buffer): Promise<Buffer> {
-    return promisify(crypto.pbkdf2)(
-        Buffer.from(passphrase),
-        salt,
-        PBKDF_ITERATIONS,
-        CRYPT_KEY_LENGTH,
-        PBKDF_DIGEST,
-    )
-}
-
-async function encryptVault (content: Vault, passphrase: string): Promise<StoredVault> {
-    const keySalt = await promisify(crypto.randomBytes)(PBKDF_SALT_LENGTH)
-    const iv = await promisify(crypto.randomBytes)(CRYPT_IV_LENGTH)
-    const key = await deriveVaultKey(passphrase, keySalt)
-
-    const plaintext = JSON.stringify(content)
-    const cipher = crypto.createCipheriv(CRYPT_ALG, key, iv)
-    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()])
-
-    return {
-        version: 1,
-        contents: encrypted.toString('base64'),
-        keySalt: keySalt.toString('hex'),
-        iv: iv.toString('hex'),
-    }
-}
-
-async function decryptVault (vault: StoredVault, passphrase: string): Promise<Vault> {
-    if (vault.version !== 1) {
-        throw new Error(`Unsupported vault format version ${vault.version}`)
-    }
-    const keySalt = Buffer.from(vault.keySalt, 'hex')
-    const key = await deriveVaultKey(passphrase, keySalt)
-    const iv = Buffer.from(vault.iv, 'hex')
-    const encrypted = Buffer.from(vault.contents, 'base64')
-
-    const decipher = crypto.createDecipheriv(CRYPT_ALG, key, iv)
-    const plaintext = decipher.update(encrypted, undefined, 'utf-8') + decipher.final('utf-8')
-    return migrateVaultContent(JSON.parse(plaintext))
-}
-
 export const VAULT_SECRET_TYPE_FILE = 'file'
 
 // Don't make it accessible through VaultService fields
 let _rememberedPassphrase: string|null = null
+
+function getSubtleCrypto (): SubtleCrypto {
+    const subtle = globalThis.crypto?.subtle
+    if (!subtle) {
+        throw new Error('Vault crypto requires WebCrypto or a native crypto provider')
+    }
+    return subtle
+}
+
+function getRandomValues (buffer: Uint8Array): Uint8Array {
+    if (!globalThis.crypto?.getRandomValues) {
+        throw new Error('Vault random bytes require WebCrypto or a native crypto provider')
+    }
+    return globalThis.crypto.getRandomValues(buffer)
+}
+
+function randomBytes (length: number): Buffer {
+    const output = new Uint8Array(length)
+    for (let offset = 0; offset < output.length; offset += 65536) {
+        getRandomValues(output.subarray(offset, Math.min(output.length, offset + 65536)))
+    }
+    return Buffer.from(output)
+}
+
+async function deriveWebVaultKey (passphrase: string, salt: Buffer): Promise<CryptoKey> {
+    const subtle = getSubtleCrypto()
+    const material = await subtle.importKey(
+        'raw',
+        Buffer.from(passphrase),
+        'PBKDF2',
+        false,
+        ['deriveKey'],
+    )
+    return subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt,
+            iterations: PBKDF_ITERATIONS,
+            hash: PBKDF_WEB_DIGEST,
+        },
+        material,
+        { name: 'AES-CBC', length: CRYPT_KEY_LENGTH * 8 },
+        false,
+        ['encrypt', 'decrypt'],
+    )
+}
+
+@Injectable({ providedIn: 'root' })
+export class VaultCryptoProvider {
+    async encrypt (content: Vault, passphrase: string): Promise<StoredVault> {
+        const keySalt = randomBytes(PBKDF_SALT_LENGTH)
+        const iv = randomBytes(CRYPT_IV_LENGTH)
+        const key = await deriveWebVaultKey(passphrase, keySalt)
+        const encrypted = await getSubtleCrypto().encrypt(
+            { name: 'AES-CBC', iv },
+            key,
+            Buffer.from(JSON.stringify(content), 'utf-8'),
+        )
+
+        return {
+            version: 1,
+            contents: Buffer.from(encrypted).toString('base64'),
+            keySalt: keySalt.toString('hex'),
+            iv: iv.toString('hex'),
+        }
+    }
+
+    async decrypt (vault: StoredVault, passphrase: string): Promise<Vault> {
+        if (vault.version !== 1) {
+            throw new Error(`Unsupported vault format version ${vault.version}`)
+        }
+        const keySalt = Buffer.from(vault.keySalt, 'hex')
+        const key = await deriveWebVaultKey(passphrase, keySalt)
+        const iv = Buffer.from(vault.iv, 'hex')
+        const encrypted = Buffer.from(vault.contents, 'base64')
+        const plaintext = await getSubtleCrypto().decrypt(
+            { name: 'AES-CBC', iv },
+            key,
+            encrypted,
+        )
+        return migrateVaultContent(JSON.parse(Buffer.from(plaintext).toString('utf-8')))
+    }
+
+    async randomBytes (length: number): Promise<Buffer> {
+        return randomBytes(length)
+    }
+}
 
 @Injectable({ providedIn: 'root' })
 export class VaultService {
@@ -114,6 +157,7 @@ export class VaultService {
         private zone: NgZone,
         private notifications: NotificationsService,
         private ngbModal: NgbModal,
+        private vaultCrypto: VaultCryptoProvider,
     ) {
         this.getPassphrase = serializeFunction(this.getPassphrase.bind(this))
     }
@@ -142,10 +186,10 @@ export class VaultService {
             passphrase = await this.getPassphrase()
         }
         try {
-            return await wrapPromise(this.zone, decryptVault(storage, passphrase))
+            return await wrapPromise(this.zone, this.vaultCrypto.decrypt(storage, passphrase))
         } catch (e) {
             this.forgetPassphrase()
-            if (e.toString().includes('BAD_DECRYPT')) {
+            if (e.toString().includes('BAD_DECRYPT') || e.toString().includes('OperationError')) {
                 this.notifications.error('Incorrect passphrase')
             }
             throw e
@@ -166,7 +210,7 @@ export class VaultService {
         if (_rememberedPassphrase) {
             _rememberedPassphrase = passphrase
         }
-        return wrapPromise(this.zone, encryptVault(vault, passphrase))
+        return wrapPromise(this.zone, this.vaultCrypto.encrypt(vault, passphrase))
     }
 
     async save (vault: Vault, passphrase?: string): Promise<void> {
@@ -265,6 +309,7 @@ export class VaultFileProvider extends FileProvider {
         private platform: PlatformService,
         private selector: SelectorService,
         private zone: NgZone,
+        private vaultCrypto: VaultCryptoProvider,
     ) {
         super()
     }
@@ -305,7 +350,7 @@ export class VaultFileProvider extends FileProvider {
             throw new Error('Nothing selected')
         }
         const transfer = transfers[0]
-        const id = (await wrapPromise(this.zone, promisify(crypto.randomBytes)(32))).toString('hex')
+        const id = (await wrapPromise(this.zone, this.vaultCrypto.randomBytes(32))).toString('hex')
         await this.vault.addSecret({
             type: VAULT_SECRET_TYPE_FILE,
             key: {

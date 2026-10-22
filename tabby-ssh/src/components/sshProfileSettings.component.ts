@@ -4,12 +4,52 @@ import { Component, ViewChild } from '@angular/core'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { firstBy } from 'thenby'
 
-import { FileProvidersService, Platform, PlatformService, HostAppService, PromptModalComponent, PartialProfile, ProfilesService, ProfileSettingsComponent, FullyDefined, ProxifiedConfig, TranslateService } from 'tabby-core'
+import { FileProvidersService, Platform, PlatformService, HostAppService, PromptModalComponent, PartialProfile, ProfilesService, ProfileSettingsComponent, FullyDefined, ProxifiedConfig, OneKeyEntry, OneKeyService, TranslateService } from 'tabby-core'
 import { LoginScriptsSettingsComponent } from 'tabby-terminal'
 import { PasswordStorageService } from '../services/passwordStorage.service'
-import { ForwardedPortConfig, SSHAlgorithmType, SSHProfile } from '../api'
+import { ForwardedPortConfig, PortForwardType, SSHAlgorithmType, SSHProfile } from '../api'
 import { supportedAlgorithms } from '../algorithms'
 import { SSHProfilesService } from '../profiles'
+
+type TauriSshFeature =
+    'agentAuth' |
+    'keyboardInteractive' |
+    'multiplePrivateKeys' |
+    'jumpHost' |
+    'proxyCommand' |
+    'socksProxy' |
+    'httpProxy' |
+    'portForwarding' |
+    'x11Forwarding' |
+    'agentForwarding'
+
+type TauriSshCapabilities = Record<TauriSshFeature, boolean>
+
+const ELECTRON_SSH_CAPABILITIES: TauriSshCapabilities = {
+    agentAuth: true,
+    keyboardInteractive: true,
+    multiplePrivateKeys: true,
+    jumpHost: true,
+    proxyCommand: true,
+    socksProxy: true,
+    httpProxy: true,
+    portForwarding: true,
+    x11Forwarding: true,
+    agentForwarding: true,
+}
+
+const TAURI_SSH_CAPABILITIES: TauriSshCapabilities = {
+    agentAuth: false,
+    keyboardInteractive: true,
+    multiplePrivateKeys: true,
+    jumpHost: false,
+    proxyCommand: false,
+    socksProxy: false,
+    httpProxy: false,
+    portForwarding: true,
+    x11Forwarding: false,
+    agentForwarding: false,
+}
 
 /** @hidden */
 @Component({
@@ -23,21 +63,27 @@ export class SSHProfileSettingsComponent implements ProfileSettingsComponent<SSH
     connectionMode: 'direct'|'proxyCommand'|'jumpHost'|'socksProxy'|'httpProxy' = 'direct'
 
     supportedAlgorithms = supportedAlgorithms
+    sshCapabilities: TauriSshCapabilities = ELECTRON_SSH_CAPABILITIES
     algorithms: Record<string, Record<string, boolean>> = {}
     jumpHosts: PartialProfile<SSHProfile>[]
+    oneKeys: OneKeyEntry[] = []
     @ViewChild('loginScriptsSettings') loginScriptsSettings: LoginScriptsSettingsComponent|null
 
     constructor (
         public hostApp: HostAppService,
         private profilesService: ProfilesService,
         private passwordStorage: PasswordStorageService,
+        private oneKey: OneKeyService,
+        private translate: TranslateService,
         private ngbModal: NgbModal,
         private fileProviders: FileProvidersService,
         private platform: PlatformService,
-        private translate: TranslateService,
     ) { }
 
     async ngOnInit () {
+        this.sshCapabilities = this.isTauriHost() ? TAURI_SSH_CAPABILITIES : ELECTRON_SSH_CAPABILITIES
+        this.oneKeys = this.oneKey.listEntries()
+        this.profile.options.credentialMode ??= this.profile.options.oneKeyId ? 'oneKey' : 'direct'
         this.jumpHosts = (await this.profilesService.getProfiles({ includeBuiltin: false })).filter(x => x.type === 'ssh' && x !== this.profile)
         this.jumpHosts.sort(firstBy(x => this.getJumpHostLabel(x)))
 
@@ -58,7 +104,7 @@ export class SSHProfileSettingsComponent implements ProfileSettingsComponent<SSH
             this.connectionMode = 'httpProxy'
         }
 
-        if (this.profile.options.user) {
+        if (!this.isUsingOneKey() && this.profile.options.user) {
             try {
                 const savedPassword = await this.passwordStorage.loadPassword(this.profile)
                 this.hasSavedPassword = savedPassword != null
@@ -66,6 +112,60 @@ export class SSHProfileSettingsComponent implements ProfileSettingsComponent<SSH
                 console.error('Could not check for saved password', e)
             }
         }
+    }
+
+    isTauriHost (): boolean {
+        const candidate = globalThis as typeof globalThis & {
+            __TAURI_INTERNALS__?: unknown
+            __TAURI__?: unknown
+            window?: Window & { __TAURI_INTERNALS__?: unknown, __TAURI__?: unknown }
+        }
+        return Boolean(candidate.__TAURI_INTERNALS__ ?? candidate.__TAURI__ ?? candidate.window?.__TAURI_INTERNALS__ ?? candidate.window?.__TAURI__)
+    }
+
+    isSshFeatureAvailable (feature: TauriSshFeature): boolean {
+        return this.sshCapabilities[feature]
+    }
+
+    isUsingOneKey (): boolean {
+        return this.profile.options.credentialMode === 'oneKey'
+    }
+
+    setCredentialMode (mode: 'direct'|'oneKey'): void {
+        this.profile.options.credentialMode = mode
+        if (mode === 'direct') {
+            this.profile.options.oneKeyId = null
+        } else if (!this.profile.options.oneKeyId && this.oneKeys.length) {
+            this.profile.options.oneKeyId = this.oneKeys[0].id
+        }
+    }
+
+    getSelectedOneKey (): OneKeyEntry|null {
+        if (!this.profile.options.oneKeyId) {
+            return null
+        }
+        return this.oneKeys.find(x => x.id === this.profile.options.oneKeyId) ?? null
+    }
+
+    getSelectedOneKeySummary (): string {
+        const entry = this.getSelectedOneKey()
+        if (!entry) {
+            return this.translate.instant('Select a OneKey credential')
+        }
+        const parts = [
+            entry.username || this.translate.instant('No username'),
+            entry.hasPassword ? this.translate.instant('password saved') : this.translate.instant('no password'),
+            this.translate.instant('{count} key(s)', { count: entry.privateKeys.length }),
+        ]
+        return parts.join(' · ')
+    }
+
+    canAddPrivateKey (): boolean {
+        return this.isSshFeatureAvailable('multiplePrivateKeys') || this.profile.options.privateKeys.length === 0
+    }
+
+    getSupportedForwardTypes (): PortForwardType[] {
+        return [PortForwardType.Local, PortForwardType.Remote, PortForwardType.Dynamic]
     }
 
     getJumpHostLabel (p: PartialProfile<SSHProfile>) {
@@ -133,6 +233,13 @@ export class SSHProfileSettingsComponent implements ProfileSettingsComponent<SSH
                 .filter(([, v]) => !!v)
                 .map(([key]) => key)
             if(k !== SSHAlgorithmType.COMPRESSION) { this.profile.options.algorithms[k].sort() }
+        }
+
+        if (!this.isUsingOneKey()) {
+            this.profile.options.oneKeyId = null
+        }
+        if (this.profile.options.oneKeyId) {
+            this.profile.options.credentialMode = 'oneKey'
         }
 
         if (this.connectionMode !== 'jumpHost') {

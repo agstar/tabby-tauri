@@ -54,9 +54,7 @@
   "peerDependencies": {
     "tabby-community-color-schemes": "*",
     "tabby-core": "*",
-    "tabby-electron": "*",
     "tabby-local": "*",
-    "tabby-plugin-manager": "*",
     "tabby-serial": "*",
     "tabby-settings": "*",
     "tabby-ssh": "*",

@@ -1,7 +1,5 @@
-import * as fs from 'mz/fs'
-import * as fsSync from 'fs'
 import { Injector } from '@angular/core'
-import { HostAppService, ConfigService, WIN_BUILD_CONPTY_SUPPORTED, WIN_BUILD_BUNDLED_CONPTY_SUPPORTED, isWindowsBuild, Platform, BootstrapData, BOOTSTRAP_DATA, LogService } from 'tabby-core'
+import { HostAppService, ConfigService, WIN_BUILD_CONPTY_SUPPORTED, WIN_BUILD_BUNDLED_CONPTY_SUPPORTED, isWindowsBuild, Platform, BootstrapData, BOOTSTRAP_DATA, LogService, PlatformService } from 'tabby-core'
 import { BaseSession } from 'tabby-terminal'
 import { SessionOptions, ChildProcess, PTYInterface, PTYProxy } from './api'
 import { getEnvironment, substituteEnv } from './environment'
@@ -33,6 +31,7 @@ export class Session extends BaseSession {
     private hostApp: HostAppService
     private bootstrapData: BootstrapData
     private ptyInterface: PTYInterface
+    private platform: PlatformService
 
     constructor (
         injector: Injector,
@@ -40,8 +39,9 @@ export class Session extends BaseSession {
         super(injector.get(LogService).create('local'))
         this.config = injector.get(ConfigService)
         this.hostApp = injector.get(HostAppService)
-        this.ptyInterface = injector.get(PTYInterface)
         this.bootstrapData = injector.get(BOOTSTRAP_DATA)
+        this.ptyInterface = injector.get(PTYInterface)
+        this.platform = injector.get(PlatformService)
     }
 
     async start (options: SessionOptions): Promise<void> {
@@ -89,7 +89,7 @@ export class Session extends BaseSession {
             // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
             let cwd = options.cwd || process.env.HOME
 
-            if (!fsSync.existsSync(cwd!)) {
+            if (cwd && !await this.platform.pathExists(cwd)) {
                 console.warn('Ignoring non-existent CWD:', cwd)
                 cwd = undefined
             }
@@ -227,9 +227,8 @@ export class Session extends BaseSession {
             console.info('Could not read working directory:', exc)
         }
 
-        try {
-            cwd = await fs.realpath(cwd)
-        } catch {}
+        const realpath = cwd ? await this.platform.realpath(cwd).catch(() => null) : null
+        cwd = realpath ?? cwd
 
         if (this.hostApp.platform === Platform.Windows && (cwd === this.initialCWD || cwd === process.env.WINDIR)) {
             // shell doesn't truly change its process' CWD
@@ -239,9 +238,11 @@ export class Session extends BaseSession {
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         cwd = cwd || this.guessedCWD
 
-        try {
-            await fs.access(cwd)
-        } catch {
+        if (!cwd) {
+            return null
+        }
+
+        if (!await this.platform.pathExists(cwd)) {
             return null
         }
         return cwd

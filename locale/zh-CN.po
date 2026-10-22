@@ -2572,3 +2572,105 @@ msgctxt "[Dynamic] port forwarding"
 msgid "id.port-forwarding.dynamic"
 msgstr "动态端口转发"
 
+
+msgid "Credential source"
+msgstr "凭据来源"
+
+msgid "Secure credential storage is unavailable. OneKey passwords and passphrases cannot be saved on this host."
+msgstr "安全凭据存储不可用。此主机上无法保存 OneKey 密码和口令。"
+
+msgid "No OneKey credentials yet"
+msgstr "还没有 OneKey 凭据"
+
+msgid "Not set"
+msgstr "未设置"
+
+msgid "OneKey name"
+msgstr "OneKey 名称"
+
+msgid "Private key passphrase"
+msgstr "私钥口令"
+
+msgid "Passphrase saved"
+msgstr "口令已保存"
+
+msgid "No passphrase"
+msgstr "无口令"
+
+msgid "Delete OneKey credential?"
+msgstr "删除 OneKey 凭据？"
+
+msgid "Delete OneKey credential used by {count} SSH profile(s)?"
+msgstr "删除被 {count} 个 SSH 配置使用的 OneKey 凭据？"
+
+msgid "Send OneKey credential"
+msgstr "发送 OneKey 凭据"
+
+msgid "Send selected OneKey secret to this terminal?"
+msgstr "将选中的 OneKey 密钥发送到此终端？"
+
+msgid "Destination"
+msgstr "目标"
+
+msgid "Field"
+msgstr "字段"
+
+msgid "Prompt"
+msgstr "提示"
+
+msgid "Send"
+msgstr "发送"
+
+msgid "Selected OneKey secret is not saved"
+msgstr "选中的 OneKey 密钥尚未保存"
+
+msgid "OneKey credential was not sent because the terminal is no longer active"
+msgstr "终端不再处于活动状态，未发送 OneKey 凭据"
+
+msgid "Search OneKey"
+msgstr "搜索 OneKey"
+
+msgid "No username"
+msgstr "无用户名"
+
+msgid "{count} key(s)"
+msgstr "{count} 个私钥"
+
+msgid "Select a OneKey credential"
+msgstr "请选择 OneKey 凭据"
+
+msgid "password saved"
+msgstr "密码已保存"
+
+msgid "no password"
+msgstr "无密码"
+
+msgid "OneKey credentials are disabled because secure storage is unavailable"
+msgstr "安全凭据存储不可用，OneKey 凭据功能已禁用"
+
+msgid "OneKey secure storage operation failed"
+msgstr "OneKey 安全存储操作失败"
+
+msgid "Please verify that the system secure credential store is available."
+msgstr "请确认系统安全凭据存储可用。"
+
+msgid "OK"
+msgstr "确定"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Upload files"
+msgstr "上传文件"
+
+msgid "Upload folder"
+msgstr "上传文件夹"
+
+msgid "No files match the filter \"{{filterText}}\""
+msgstr "没有文件匹配筛选条件 \"{{filterText}}\""
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "Failed"
+msgstr "失败"

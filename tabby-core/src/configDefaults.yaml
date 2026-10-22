@@ -60,3 +60,5 @@ hacks:
   globalHotkey: null
 language: null
 defaultQuickConnectProvider: "ssh"
+oneKey:
+  entries: []

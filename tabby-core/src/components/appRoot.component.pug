@@ -45,6 +45,8 @@ title-bar(
             )
                 button.btn.btn-secondary.btn-tab-bar(
                     [ngbTooltip]='button.label',
+                    [attr.title]='button.label',
+                    [attr.aria-label]='button.label',
                     (click)='button.run && button.run()',
                     [fastHtmlBind]='button.icon'
                 )
@@ -66,6 +68,9 @@ title-bar(
                 )
 
         .btn-space.background(
+            [attr.data-tauri-drag-region]='shouldUseTauriNativeDragRegions \
+            && config.store.appearance.frame == "thin" \
+            && ((config.store.appearance.tabsLocation !== "left" && config.store.appearance.tabsLocation !== "right") || hostApp.platform !== Platform.macOS) ? "" : null',
             [class.persistent]='config.store.appearance.frame == "thin"',
             [class.drag]='config.store.appearance.frame == "thin" \
             && ((config.store.appearance.tabsLocation !== "left" && config.store.appearance.tabsLocation !== "right") || hostApp.platform !== Platform.macOS)'
@@ -77,12 +82,14 @@ title-bar(
             )
                 button.btn.btn-secondary.btn-tab-bar(
                     [ngbTooltip]='button.label',
+                    [attr.title]='button.label',
+                    [attr.aria-label]='button.label',
                     (click)='button.run && button.run()',
                     [fastHtmlBind]='button.icon'
                 )
 
             button.btn.btn-secondary.btn-tab-bar.btn-update(
-                *ngIf='updatesAvailable',
+                *ngIf='updater.isAvailable && updatesAvailable',
                 [ngbTooltip]='"Update available - Click to install"|translate',
                 (click)='updater.update()'
             ) !{require('../icons/gift.svg')}
@@ -91,11 +98,11 @@ title-bar(
             *ngIf='config.store.appearance.frame == "thin" \
             && config.store.appearance.tabsLocation !== "left" \
             && config.store.appearance.tabsLocation !== "right" \
-            && hostApp.platform == Platform.Linux',
+            && shouldShowTabBarWindowControls',
         )
 
         div.window-controls-spacer(
-            *ngIf='config.store.appearance.frame == "thin" && (hostApp.platform == Platform.Windows) && (config.store.appearance.tabsLocation == "top")',
+            *ngIf='config.store.appearance.frame == "thin" && shouldShowNativeWindowControlsSpacer && (config.store.appearance.tabsLocation == "top")',
         )
     .content
         start-page.content-tab.content-tab-active(*ngIf='ready && app.tabs.length == 0')

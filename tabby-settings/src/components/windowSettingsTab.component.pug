@@ -32,7 +32,7 @@ h3.mb-3(translate) Window
     )
 
 
-.form-line(*ngIf='platform.supportsWindowControls')
+.form-line(*ngIf='platform.displayCapabilities.windowEffects.supported')
     .header
         .title(*ngIf='hostApp.platform !== Platform.macOS', translate) Acrylic background
         .title(*ngIf='hostApp.platform === Platform.macOS', translate) Vibrancy
@@ -43,7 +43,7 @@ h3.mb-3(translate) Window
         (ngModelChange)='config.save()'
     )
 
-.form-line(*ngIf='config.store.appearance.vibrancy && isFluentVibrancySupported && config.store.hacks.enableFluentBackground')
+.form-line(*ngIf='config.store.appearance.vibrancy && platform.displayCapabilities.windowEffects.supported && isFluentVibrancySupported && config.store.hacks.enableFluentBackground')
     .header
         .title(translate) Background type
     .btn-group
@@ -72,7 +72,7 @@ h3.mb-3(translate) Window
         )
             span Fluent
 
-.form-line(*ngIf='platform.supportsWindowControls')
+.form-line(*ngIf='platform.displayCapabilities.opacity.supported')
     .header
         .title(translate) Opacity
     input(
@@ -84,7 +84,7 @@ h3.mb-3(translate) Window
         step='0.01'
     )
 
-.form-line(*ngIf='platform.supportsWindowControls')
+.form-line(*ngIf='platform.displayCapabilities.customFrame.supported')
     .header
         .title(translate) Window frame
         .description(translate) Whether a custom window or an OS native window should be used

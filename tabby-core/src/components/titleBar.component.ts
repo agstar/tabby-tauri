@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core'
-import { HostWindowService } from '../api'
+import { HostWindowService, PlatformService } from '../api'
 
 /** @hidden */
 @Component({
@@ -10,5 +10,14 @@ import { HostWindowService } from '../api'
 export class TitleBarComponent {
     @Input() hideControls: boolean
 
-    constructor (public hostWindow: HostWindowService) { }
+    constructor (
+        public hostWindow: HostWindowService,
+        private platform: PlatformService,
+    ) { }
+
+    get shouldUseTauriNativeDragRegions (): boolean {
+        return this.platform.supportsWindowControls
+            && this.platform.displayCapabilities.customFrame.strategy === 'decorations-false-tauri-drag-region'
+            && this.platform.displayCapabilities.draggableRegions.supported
+    }
 }

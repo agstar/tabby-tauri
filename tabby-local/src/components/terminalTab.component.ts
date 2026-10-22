@@ -4,6 +4,7 @@ import { BaseTabProcess, WIN_BUILD_CONPTY_SUPPORTED, isWindowsBuild, GetRecovery
 import { BaseTerminalTabComponent } from 'tabby-terminal'
 import { LocalProfile, SessionOptions, UACService } from '../api'
 import { Session } from '../session'
+import { parseLocalSshDestination } from '../sshTitle'
 
 /** @hidden */
 @Component({
@@ -15,6 +16,8 @@ import { Session } from '../session'
 export class TerminalTabComponent extends BaseTerminalTabComponent<LocalProfile> {
     @Input() sessionOptions: SessionOptions // Deprecated
     session: Session|null = null
+    private pendingInputLine = ''
+    private inputEscapeMode: 'none'|'esc'|'csi' = 'none'
 
     // eslint-disable-next-line @typescript-eslint/no-useless-constructor
     constructor (
@@ -73,6 +76,11 @@ export class TerminalTabComponent extends BaseTerminalTabComponent<LocalProfile>
 
         this.setSession(session)
         this.recoveryStateChangedHint.next()
+    }
+
+    sendInput (data: string|Buffer): void {
+        this.updateTitleFromLocalSshInput(data)
+        super.sendInput(data)
     }
 
     async getRecoveryToken (options?: GetRecoveryTokenOptions): Promise<any> {
@@ -134,5 +142,52 @@ export class TerminalTabComponent extends BaseTerminalTabComponent<LocalProfile>
      */
     protected isSessionExplicitlyTerminated (): boolean {
         return true
+    }
+
+    private updateTitleFromLocalSshInput (data: string|Buffer): void {
+        const text = data instanceof Buffer ? data.toString('utf-8') : data
+        for (const char of text) {
+            if (this.inputEscapeMode !== 'none') {
+                if (this.inputEscapeMode === 'esc' && char === '[') {
+                    this.inputEscapeMode = 'csi'
+                    continue
+                }
+                if (this.inputEscapeMode === 'esc' || (char >= '@' && char <= '~')) {
+                    this.inputEscapeMode = 'none'
+                }
+                continue
+            }
+            if (char === '\x1b') {
+                this.inputEscapeMode = 'esc'
+                continue
+            }
+            if (char === '\x03') {
+                this.pendingInputLine = ''
+                this.inputEscapeMode = 'none'
+                continue
+            }
+            if (char === '\x08' || char === '\x7f') {
+                this.pendingInputLine = this.pendingInputLine.slice(0, -1)
+                continue
+            }
+            if (char === '\r' || char === '\n') {
+                this.applySshTitleFromCommand(this.pendingInputLine)
+                this.pendingInputLine = ''
+                continue
+            }
+            if (char >= ' ' && char !== '\x7f') {
+                this.pendingInputLine += char
+            }
+        }
+    }
+
+    private applySshTitleFromCommand (line: string): void {
+        const target = parseLocalSshDestination(line)
+        if (target) {
+            this.disableDynamicTitle = true
+            this.setTitle(target.host)
+            this.customTitle = target.host
+            ;(this as any).__tabbyLocalSshTarget = target
+        }
     }
 }

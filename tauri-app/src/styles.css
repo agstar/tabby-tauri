@@ -1,0 +1,130 @@
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #d7e1ff;
+  background: #10131a;
+}
+
+body {
+  margin: 0;
+  min-width: 480px;
+  min-height: 320px;
+}
+
+.shell {
+  margin: 24px;
+  border: 1px solid #283248;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #151a25, #0f131c);
+  box-shadow: 0 16px 42px rgb(0 0 0 / 35%);
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #1c2433;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #56d364;
+}
+
+article {
+  padding: 24px;
+}
+
+dt {
+  margin-top: 12px;
+  color: #8fb3ff;
+  font-weight: 600;
+}
+
+dd {
+  margin: 4px 0 0;
+  color: #d7e1ff;
+}
+
+.test-tabs {
+  display: grid;
+  gap: 14px;
+  margin: 0 24px 24px;
+  padding: 20px;
+  border: 1px solid #283248;
+  border-radius: 12px;
+  background: rgb(10 14 22 / 72%);
+}
+
+.test-tabs h2 {
+  margin: 0;
+  color: #8fb3ff;
+  font-size: 1rem;
+}
+
+.test-tab-empty {
+  margin: 0;
+  color: #93a4c8;
+}
+
+.test-tab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.test-tab {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #33405a;
+  border-radius: 10px;
+  background: #151c2a;
+}
+
+.test-tab span {
+  color: #93a4c8;
+  font-size: 0.85rem;
+}
+
+.host-key-confirmation {
+  display: grid;
+  gap: 14px;
+  margin: 24px;
+  padding: 20px;
+  border: 1px solid #654f17;
+  border-radius: 12px;
+  background: #221b0b;
+}
+
+.host-key-confirmation h2 {
+  margin: 0;
+  color: #ffd166;
+}
+
+.host-key-confirmation p {
+  margin: 0;
+  color: #f5ddb0;
+}
+
+.host-key-confirmation label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.host-key-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.host-key-actions button {
+  border: 1px solid #44506b;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #d7e1ff;
+  background: #1c2433;
+}

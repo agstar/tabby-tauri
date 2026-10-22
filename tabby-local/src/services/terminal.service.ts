@@ -1,6 +1,5 @@
-import * as fsSync from 'fs'
 import { Injectable } from '@angular/core'
-import { Logger, LogService, ConfigService, ProfilesService, PartialProfile } from 'tabby-core'
+import { Logger, LogService, ConfigService, ProfilesService, PartialProfile, PlatformService } from 'tabby-core'
 import { TerminalTabComponent } from '../components/terminalTab.component'
 import { LocalProfile } from '../api'
 
@@ -12,6 +11,7 @@ export class TerminalService {
     private constructor (
         private profilesService: ProfilesService,
         private config: ConfigService,
+        private platform: PlatformService,
         log: LogService,
     ) {
         this.logger = log.create('terminal')
@@ -39,7 +39,7 @@ export class TerminalService {
 
         cwd = cwd ?? fullProfile.options.cwd
 
-        if (cwd && !fsSync.existsSync(cwd)) {
+        if (cwd && !await this.platform.pathExists(cwd)) {
             console.warn('Ignoring non-existent CWD:', cwd)
             cwd = null
         }

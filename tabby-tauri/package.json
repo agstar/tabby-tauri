@@ -1,0 +1,27 @@
+{
+  "name": "tabby-tauri",
+  "version": "1.0.231-nightly.0",
+  "description": "Tauri-specific host bindings for Tabby",
+  "keywords": [
+    "tabby-builtin-plugin"
+  ],
+  "main": "dist/index.js",
+  "typings": "typings/index.d.ts",
+  "scripts": {
+    "build": "webpack --progress --color",
+    "watch": "webpack --progress --color --watch"
+  },
+  "files": [
+    "dist",
+    "typings"
+  ],
+  "author": "Tabby Developers",
+  "license": "MIT",
+  "peerDependencies": {
+    "@angular/core": "^15",
+    "tabby-core": "*",
+    "tabby-local": "*",
+    "tabby-ssh": "*",
+    "tabby-terminal": "*"
+  }
+}

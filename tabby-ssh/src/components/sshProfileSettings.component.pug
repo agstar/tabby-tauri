@@ -16,29 +16,39 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                         button.dropdown-item(
                             *ngIf='hostApp.platform !== Platform.Web',
                             (click)='connectionMode = "proxyCommand"',
+                            [disabled]='!isSshFeatureAvailable("proxyCommand")',
                         )
                             div Proxy command
                             .text-muted(translate) Command's stdin/stdout is used instead of a network connection
+                            .text-warning(*ngIf='!isSshFeatureAvailable("proxyCommand")', translate) This option is not available in the Tauri SSH provider yet
                         button.dropdown-item(
                             (click)='connectionMode = "jumpHost"',
+                            [disabled]='!isSshFeatureAvailable("jumpHost")',
                         )
                             div(translate) Jump host
                             .text-muted(translate) Connect to a different host first and use it as a proxy
+                            .text-warning(*ngIf='!isSshFeatureAvailable("jumpHost")', translate) This option is not available in the Tauri SSH provider yet
                         button.dropdown-item(
                             (click)='connectionMode = "socksProxy"',
+                            [disabled]='!isSshFeatureAvailable("socksProxy")',
                         )
                             div(translate) SOCKS proxy
                             .text-muted(translate) Connect through a proxy server
+                            .text-warning(*ngIf='!isSshFeatureAvailable("socksProxy")', translate) This option is not available in the Tauri SSH provider yet
                         button.dropdown-item(
                             (click)='connectionMode = "httpProxy"',
+                            [disabled]='!isSshFeatureAvailable("httpProxy")',
                         )
                             div(translate) HTTP proxy
                             .text-muted(translate) Using CONNECT method
+                            .text-warning(*ngIf='!isSshFeatureAvailable("httpProxy")', translate) This option is not available in the Tauri SSH provider yet
 
                 .mb-3.w-100(*ngIf='connectionMode === "proxyCommand"')
                     label(translate) Proxy command
+                    .alert.alert-warning(*ngIf='!isSshFeatureAvailable("proxyCommand")', translate) This option is not available in the Tauri SSH provider yet
                     input.form-control(
                         type='text',
+                        [disabled]='!isSshFeatureAvailable("proxyCommand")',
                         [(ngModel)]='profile.options.proxyCommand',
                     )
 
@@ -59,7 +69,11 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
 
             .mb-3(*ngIf='connectionMode === "jumpHost"')
                 label(translate) Jump host
-                select.form-control([(ngModel)]='profile.options.jumpHost')
+                .alert.alert-warning(*ngIf='!isSshFeatureAvailable("jumpHost")', translate) This option is not available in the Tauri SSH provider yet
+                select.form-control(
+                    [(ngModel)]='profile.options.jumpHost',
+                    [disabled]='!isSshFeatureAvailable("jumpHost")'
+                )
                     option([ngValue]='null', translate) Select
                     option([ngValue]='x.id', *ngFor='let x of jumpHosts') {{getJumpHostLabel(x)}}
 
@@ -67,8 +81,10 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
             .d-flex.w-100(*ngIf='connectionMode === "socksProxy"')
                 .mb-3.w-100.me-2
                     label(translate) SOCKS proxy host
+                    .alert.alert-warning(*ngIf='!isSshFeatureAvailable("socksProxy")', translate) This option is not available in the Tauri SSH provider yet
                     input.form-control(
                         type='text',
+                        [disabled]='!isSshFeatureAvailable("socksProxy")',
                         [(ngModel)]='profile.options.socksProxyHost',
                     )
 
@@ -77,14 +93,17 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                     input.form-control(
                         type='number',
                         placeholder='5000',
+                        [disabled]='!isSshFeatureAvailable("socksProxy")',
                         [(ngModel)]='profile.options.socksProxyPort',
                     )
 
             .d-flex.w-100(*ngIf='connectionMode === "httpProxy"')
                 .mb-3.w-100.me-2
                     label(translate) HTTP proxy host
+                    .alert.alert-warning(*ngIf='!isSshFeatureAvailable("httpProxy")', translate) This option is not available in the Tauri SSH provider yet
                     input.form-control(
                         type='text',
+                        [disabled]='!isSshFeatureAvailable("httpProxy")',
                         [(ngModel)]='profile.options.httpProxyHost',
                     )
 
@@ -93,10 +112,44 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                     input.form-control(
                         type='number',
                         placeholder='5000',
+                        [disabled]='!isSshFeatureAvailable("httpProxy")',
                         [(ngModel)]='profile.options.httpProxyPort',
                     )
 
             .mb-3
+                label(translate) Credential source
+                .btn-group.mt-1.w-100
+                    input.btn-check(
+                        type='radio',
+                        name='credentialMode',
+                        [ngModel]='profile.options.credentialMode || "direct"',
+                        (ngModelChange)='setCredentialMode($event)',
+                        id='credentialModeDirect',
+                        [value]='"direct"'
+                    )
+                    label.btn.btn-secondary(for='credentialModeDirect')
+                        i.fas.fa-keyboard
+                        .m-0(translate) Direct
+                    input.btn-check(
+                        type='radio',
+                        name='credentialMode',
+                        [ngModel]='profile.options.credentialMode || "direct"',
+                        (ngModelChange)='setCredentialMode($event)',
+                        id='credentialModeOneKey',
+                        [value]='"oneKey"'
+                    )
+                    label.btn.btn-secondary(for='credentialModeOneKey')
+                        i.fas.fa-key
+                        .m-0 OneKey
+
+            .mb-3(*ngIf='isUsingOneKey()')
+                label OneKey
+                select.form-control([(ngModel)]='profile.options.oneKeyId')
+                    option([ngValue]='null', translate) Select
+                    option([ngValue]='entry.id', *ngFor='let entry of oneKeys') {{entry.name}}
+                .text-muted.mt-1 {{getSelectedOneKeySummary()}}
+
+            .mb-3(*ngIf='!isUsingOneKey()')
                 label(translate) Username
                 input.form-control(
                     type='text',
@@ -150,6 +203,7 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                         [(ngModel)]='profile.options.auth',
                         id='authAgent',
                         [value]='"agent"'
+                        [disabled]='!isSshFeatureAvailable("agentAuth")'
                     )
                     label.btn.btn-secondary(
                         for='authAgent'
@@ -162,6 +216,7 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                         [(ngModel)]='profile.options.auth',
                         id='auth"keyboardInteractive"',
                         [value]='"keyboardInteractive"'
+                        [disabled]='!isSshFeatureAvailable("keyboardInteractive")'
                     )
                     label.btn.btn-secondary(
                         for='auth"keyboardInteractive"'
@@ -169,7 +224,7 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                         i.far.fa-keyboard
                         .m-0(translate) Interactive
 
-            .form-line(*ngIf='profile.options.user && (!profile.options.auth || profile.options.auth === "password")')
+            .form-line(*ngIf='!isUsingOneKey() && profile.options.user && (!profile.options.auth || profile.options.auth === "password")')
                 .header
                     .title(translate) Password
                     .description(*ngIf='!hasSavedPassword', translate) Save a password in the keychain
@@ -181,7 +236,7 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                     i.fas.fa-trash-alt
                     span(translate) Forget
 
-            .mb-3(*ngIf='!profile.options.auth || profile.options.auth === "publicKey"')
+            .mb-3(*ngIf='!isUsingOneKey() && (!profile.options.auth || profile.options.auth === "publicKey")')
                 label(translate) Private keys
                 .list-group.mb-2
                     .list-group-item.d-flex.align-items-center.p-1.ps-3(*ngFor='let path of profile.options.privateKeys')
@@ -189,16 +244,19 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
                         .no-wrap.me-auto {{path}}
                         button.btn.btn-link((click)='removePrivateKey(path)')
                             i.fas.fa-trash
-                button.btn.btn-secondary((click)='addPrivateKey()')
+                .text-warning.mb-2(*ngIf='!canAddPrivateKey()', translate) This option is not available in the Tauri SSH provider yet
+                button.btn.btn-secondary((click)='addPrivateKey()', [disabled]='!canAddPrivateKey()')
                     i.fas.fa-folder-open
                     span(translate) Add a private key
 
     li(ngbNavItem)
         a(ngbNavLink, translate) Ports
         ng-template(ngbNavContent)
+            .alert.alert-warning(*ngIf='!isSshFeatureAvailable("portForwarding")', translate) This option is not available in the Tauri SSH provider yet
             ssh-port-forwarding-config(
-                *ngIf='profile.options.forwardedPorts',
+                *ngIf='profile.options.forwardedPorts && isSshFeatureAvailable("portForwarding")',
                 [model]='profile.options.forwardedPorts',
+                [supportedTypes]='getSupportedForwardTypes()',
                 (forwardAdded)='onForwardAdded($event)',
                 (forwardRemoved)='onForwardRemoved($event)'
             )
@@ -209,12 +267,14 @@ ul.nav-tabs(ngbNav, #nav='ngbNav')
             .form-line(ng:if='hostApp.platform !== Platform.Web')
                 .header
                     .title(translate) X11 forwarding
-                toggle([(ngModel)]='profile.options.x11')
+                    .description(*ngIf='!isSshFeatureAvailable("x11Forwarding")', translate) This option is not available in the Tauri SSH provider yet
+                toggle([(ngModel)]='profile.options.x11', [disabled]='!isSshFeatureAvailable("x11Forwarding")')
 
             .form-line(ng:if='hostApp.platform !== Platform.Web')
                 .header
                     .title(translate) Agent forwarding
-                toggle([(ngModel)]='profile.options.agentForward')
+                    .description(*ngIf='!isSshFeatureAvailable("agentForwarding")', translate) This option is not available in the Tauri SSH provider yet
+                toggle([(ngModel)]='profile.options.agentForward', [disabled]='!isSshFeatureAvailable("agentForwarding")')
 
             .form-line
                 .header

@@ -31,6 +31,16 @@ const COLOR_NAMES = [
 // before giving up and letting xterm fall back to its DOM renderer.
 const MAX_WEBGL_RECOVERY_ATTEMPTS = 3
 
+const TERMINAL_SCROLLBACK_DEFAULT_LINES = 25_000
+
+function normalizeScrollbackLines (value: unknown): number {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return TERMINAL_SCROLLBACK_DEFAULT_LINES
+    }
+    return Math.floor(parsed)
+}
+
 class FlowControl {
     private blocked = false
     private blocked$ = new BehaviorSubject<boolean>(false)
@@ -90,19 +100,9 @@ export class XTermFrontend extends Frontend {
     private canvasAddon?: CanvasAddon
     private opened = false
     private resizeObserver?: any
-    private hostEventHandlers?: {
-        wheel: (event: WheelEvent) => void
-        dragOver: (event: Event) => void
-        drop: (event: Event) => void
-        mousedown: (event: Event) => void
-        mouseup: (event: Event) => void
-        mousewheel: (event: Event) => void
-        contextmenu: (event: Event) => void
-    }
-
-    private resizeTimeout?: ReturnType<typeof setTimeout>
-    private resizeAnimationFrame?: number
-    private resizePending = false
+    private resizeObserverFrame: number | null = null
+    private resizePassGeneration = 0
+    private hostEventDisposers: (() => void)[] = []
     private disposed = false
     private flowControl: FlowControl
     private pinnedToBottom = true
@@ -257,72 +257,7 @@ export class XTermFrontend extends Frontend {
         //   - wheel/keyboard event listeners (below)
         //   - explicit scrollToBottom() calls
 
-        const doResize = () => {
-            try {
-                if (this.xterm.element && getComputedStyle(this.xterm.element).getPropertyValue('height') !== 'auto') {
-                    const savedPinned = this.pinnedToBottom
-                    const savedViewportY = this.xterm.buffer.active.viewportY
-
-                    this.fitAddon.fit()
-                    this.xtermCore.viewport._refresh()
-
-                    if (savedPinned) {
-                        this.xtermCore._scrollToBottom()
-                    } else {
-                        // Restore the previous scroll position after fit
-                        const maxScroll = this.xterm.buffer.active.baseY
-                        const targetY = Math.min(savedViewportY, maxScroll)
-                        this.xterm.scrollToLine(targetY)
-                    }
-
-                    // fitAddon.fit() resizes the renderer's drawing buffer,
-                    // which blanks it synchronously, but xterm only repaints on
-                    // the next animation frame — leaving one blank frame that
-                    // reads as flicker during a window drag. Force the repaint
-                    // now (after scrolling settles) to close that gap.
-                    this.xtermCore._renderService?._renderRows(0, this.xterm.rows - 1)
-                }
-            } catch (e) {
-                // tends to throw when element wasn't shown yet
-                console.warn('Could not resize xterm', e)
-            }
-        }
-
-        // Rate-limit reflows during a window drag. The window 'resize' event and
-        // the ResizeObserver fire many times per frame; each reflow resizes the
-        // renderer's drawing buffer and re-uploads the glyph atlas texture. At
-        // full frame rate a fast drag issues reflows faster than the GPU can
-        // finish one, so frames composite with the text not yet repainted —
-        // visible as a flicker that only shows up when dragging quickly (slow
-        // drags leave enough time between reflows). Capping the reflow rate and
-        // always running a trailing fit keeps the final size correct without
-        // outrunning the renderer. Tune RESIZE_MIN_INTERVAL if needed.
-        const RESIZE_MIN_INTERVAL = 32
-        let lastResize = 0
-        const runResize = () => {
-            this.resizeAnimationFrame = undefined
-            this.resizePending = false
-            if (!this.isAttachActive()) {
-                return
-            }
-            lastResize = Date.now()
-            doResize()
-        }
-        this.resizeHandler = () => {
-            if (this.resizePending) {
-                return
-            }
-            this.resizePending = true
-            const wait = Math.max(0, RESIZE_MIN_INTERVAL - (Date.now() - lastResize))
-            if (wait > 0) {
-                this.resizeTimeout = setTimeout(() => {
-                    this.resizeTimeout = undefined
-                    this.resizeAnimationFrame = requestAnimationFrame(runResize)
-                }, wait)
-            } else {
-                this.resizeAnimationFrame = requestAnimationFrame(runResize)
-            }
-        }
+        this.resizeHandler = () => this.scheduleResizePasses()
 
         const oldKeyUp = this.xtermCore._keyUp.bind(this.xtermCore)
         this.xtermCore._keyUp = (e: KeyboardEvent) => {
@@ -345,6 +280,112 @@ export class XTermFrontend extends Frontend {
 
     private updatePinnedState (): void {
         this.pinnedToBottom = this.isAtBottom()
+    }
+
+    resizeAndRepaint (): void {
+        this.scheduleResizePasses()
+    }
+
+    private scheduleResizePasses (): void {
+        if (!this.isAttachActive()) {
+            return
+        }
+        const generation = ++this.resizePassGeneration
+        this.applyResize()
+        requestAnimationFrame(() => {
+            if (generation !== this.resizePassGeneration) {
+                return
+            }
+            this.applyResize()
+            requestAnimationFrame(() => {
+                if (generation === this.resizePassGeneration) {
+                    this.applyResize()
+                }
+            })
+        })
+        setTimeout(() => {
+            if (generation === this.resizePassGeneration) {
+                this.applyResize()
+            }
+        }, 120)
+        setTimeout(() => {
+            if (generation === this.resizePassGeneration) {
+                this.applyResize()
+            }
+        }, 350)
+    }
+
+    private scheduleObservedResize (): void {
+        if (this.resizeObserverFrame !== null) {
+            return
+        }
+        this.resizeObserverFrame = requestAnimationFrame(() => {
+            this.resizeObserverFrame = null
+            this.resizeHandler()
+        })
+    }
+
+    private cancelObservedResize (): void {
+        if (this.resizeObserverFrame === null) {
+            return
+        }
+        cancelAnimationFrame(this.resizeObserverFrame)
+        this.resizeObserverFrame = null
+    }
+
+    private addHostEventListener (
+        host: HTMLElement,
+        eventName: string,
+        listener: EventListener,
+        options?: AddEventListenerOptions,
+    ): void {
+        host.addEventListener(eventName, listener, options)
+        this.hostEventDisposers.push(() => host.removeEventListener(eventName, listener, options))
+    }
+
+    private detachHostEvents (): void {
+        for (const dispose of this.hostEventDisposers.splice(0)) {
+            dispose()
+        }
+    }
+
+    private applyResize (): void {
+        if (!this.isAttachActive()) {
+            return
+        }
+        try {
+            if (this.xterm.element && getComputedStyle(this.xterm.element).getPropertyValue('height') !== 'auto') {
+                const dimensions = this.fitAddon.proposeDimensions()
+                if (!dimensions || dimensions.cols < 2 || dimensions.rows < 1) {
+                    return
+                }
+                const savedPinned = this.pinnedToBottom
+                const savedViewportY = this.xterm.buffer.active.viewportY
+
+                this.fitAddon.fit()
+
+                if (savedPinned) {
+                    this.xtermCore._scrollToBottom()
+                } else {
+                    // Restore the previous scroll position after fit
+                    const maxScroll = this.xterm.buffer.active.baseY
+                    const targetY = Math.min(savedViewportY, maxScroll)
+                    this.xterm.scrollToLine(targetY)
+                }
+                this.repaintAfterResize()
+            }
+        } catch (e) {
+            // tends to throw when element wasn't shown yet
+            console.warn('Could not resize xterm', e)
+        }
+    }
+
+    private repaintAfterResize (): void {
+        this.xtermCore.viewport?._refresh?.()
+        this.xtermCore._renderService?.clear?.()
+        this.xtermCore._renderService?.handleResize?.(this.xterm.cols, this.xterm.rows)
+        this.xtermCore._renderService?._renderRows?.(0, Math.max(0, this.xterm.rows - 1))
+        this.xterm.refresh(0, Math.max(0, this.xterm.rows - 1))
     }
 
     async attach (host: HTMLElement, profile: BaseTerminalProfile): Promise<void> {
@@ -398,6 +439,7 @@ export class XTermFrontend extends Frontend {
         })
 
         window.addEventListener('resize', this.resizeHandler)
+        this.hostEventDisposers.push(() => window.removeEventListener('resize', this.resizeHandler))
 
         // The GPU context is often dropped while the app is in the background;
         // retry recovery once the window is focused again and WebGL is usable.
@@ -418,14 +460,15 @@ export class XTermFrontend extends Frontend {
         // unpin (see constructor comment). Use capture phase — xterm.js
         // handles wheel/key events on its internal viewport element and may
         // stop propagation, so bubbling listeners on host would never fire.
-        const wheelHandler = (event: WheelEvent) => {
+        this.addHostEventListener(host, 'wheel', (event: Event) => {
+            const wheelEvent = event as WheelEvent
             // Immediately unpin on scroll-up so that writes arriving before
             // the next animation frame don't yank the viewport back down.
-            if (event.deltaY < 0) {
+            if (wheelEvent.deltaY < 0) {
                 this.pinnedToBottom = false
             }
             requestAnimationFrame(() => this.updatePinnedState())
-        }
+        })
 
 
         this.hotkeysService.hotkey$
@@ -450,53 +493,25 @@ export class XTermFrontend extends Frontend {
                 requestAnimationFrame(() => this.updatePinnedState())
             })
 
-        this.hostEventHandlers = {
-            wheel: wheelHandler,
-            dragOver: event => this.dragOver.next(event as DragEvent),
-            drop: event => this.drop.next(event as DragEvent),
-            mousedown: event => this.mouseEvent.next(event as MouseEvent),
-            mouseup: event => this.mouseEvent.next(event as MouseEvent),
-            mousewheel: event => this.mouseEvent.next(event as MouseEvent),
-            contextmenu: event => {
-                event.preventDefault()
-                event.stopPropagation()
-            },
-        }
+        this.addHostEventListener(host, 'dragOver', event => this.dragOver.next(event as DragEvent))
+        this.addHostEventListener(host, 'drop', event => this.drop.next(event as DragEvent))
 
-        host.addEventListener('wheel', this.hostEventHandlers.wheel, { capture: true, passive: true })
-        host.addEventListener('dragOver', this.hostEventHandlers.dragOver)
-        host.addEventListener('drop', this.hostEventHandlers.drop)
-        host.addEventListener('mousedown', this.hostEventHandlers.mousedown)
-        host.addEventListener('mouseup', this.hostEventHandlers.mouseup)
-        host.addEventListener('mousewheel', this.hostEventHandlers.mousewheel)
-        host.addEventListener('contextmenu', this.hostEventHandlers.contextmenu)
+        this.addHostEventListener(host, 'mousedown', event => this.mouseEvent.next(event as MouseEvent))
+        this.addHostEventListener(host, 'mouseup', event => this.mouseEvent.next(event as MouseEvent))
+        this.addHostEventListener(host, 'mousewheel', event => this.mouseEvent.next(event as MouseEvent))
+        this.addHostEventListener(host, 'contextmenu', event => {
+            event.preventDefault()
+            event.stopPropagation()
+        })
 
-        this.resizeObserver = new window['ResizeObserver'](() => this.resizeHandler())
+        this.resizeObserver = new window['ResizeObserver'](() => this.scheduleObservedResize())
         this.resizeObserver.observe(host)
     }
 
     detach (_host: HTMLElement): void {
-        const host = this.element
-        window.removeEventListener('resize', this.resizeHandler)
-        if (this.resizeTimeout !== undefined) {
-            clearTimeout(this.resizeTimeout)
-            this.resizeTimeout = undefined
-        }
-        if (this.resizeAnimationFrame !== undefined) {
-            cancelAnimationFrame(this.resizeAnimationFrame)
-            this.resizeAnimationFrame = undefined
-        }
-        this.resizePending = false
-        if (host && this.hostEventHandlers) {
-            host.removeEventListener('wheel', this.hostEventHandlers.wheel, true)
-            host.removeEventListener('dragOver', this.hostEventHandlers.dragOver)
-            host.removeEventListener('drop', this.hostEventHandlers.drop)
-            host.removeEventListener('mousedown', this.hostEventHandlers.mousedown)
-            host.removeEventListener('mouseup', this.hostEventHandlers.mouseup)
-            host.removeEventListener('mousewheel', this.hostEventHandlers.mousewheel)
-            host.removeEventListener('contextmenu', this.hostEventHandlers.contextmenu)
-            this.hostEventHandlers = undefined
-        }
+        this.resizePassGeneration++
+        this.cancelObservedResize()
+        this.detachHostEvents()
         this.resizeObserver?.disconnect()
         this.resizeObserver = undefined
         this.opened = false
@@ -511,6 +526,9 @@ export class XTermFrontend extends Frontend {
         if (this.element) {
             this.detach(this.element)
         }
+        this.resizePassGeneration++
+        this.cancelObservedResize()
+        this.detachHostEvents()
         super.destroy()
         disposeWebglAddon(this.webGLAddon)
         this.canvasAddon?.dispose()
@@ -686,7 +704,7 @@ export class XTermFrontend extends Frontend {
         }[config.terminal.cursor] || config.terminal.cursor
         this.xterm.options.cursorBlink = config.terminal.cursorBlink
         this.xterm.options.macOptionIsMeta = config.terminal.altIsMeta
-        this.xterm.options.scrollback = config.terminal.scrollbackLines
+        this.xterm.options.scrollback = normalizeScrollbackLines(config.terminal.scrollbackLines)
         this.xterm.options.wordSeparator = config.terminal.wordSeparator
         this.xterm.options.drawBoldTextInBrightColors = config.terminal.drawBoldTextInBrightColors
         this.xterm.options.fontWeight = config.terminal.fontWeight

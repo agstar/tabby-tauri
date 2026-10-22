@@ -104,6 +104,7 @@ export class ProfilesSettingsTabComponent extends BaseComponent {
             result.name = this.profilesService.providerForProfile(result)?.getSuggestedName(cfgProxy) ?? this.translate.instant('{name} copy', base)
         }
         await this.profilesService.newProfile(result)
+        await this.duplicateProfileSecrets(base, result)
         await this.config.save()
     }
 
@@ -135,6 +136,21 @@ export class ProfilesSettingsTabComponent extends BaseComponent {
 
         result.type = provider.id
         return result
+    }
+
+    private async duplicateProfileSecrets (base: PartialProfile<Profile>, result: PartialProfile<Profile>): Promise<void> {
+        try {
+            const provider = this.profilesService.providerForProfile(result)
+            if (!provider) {
+                return
+            }
+            await provider.duplicateProfile(
+                this.profilesService.getConfigProxyForProfile(base),
+                this.profilesService.getConfigProxyForProfile(result),
+            )
+        } catch (error) {
+            console.warn(`Could not duplicate secrets for profile "${result.name}":`, error)
+        }
     }
 
     async deleteProfile (profile: PartialProfile<Profile>): Promise<void> {

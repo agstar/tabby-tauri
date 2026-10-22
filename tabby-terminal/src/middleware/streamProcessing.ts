@@ -3,8 +3,6 @@ import bufferReplace from 'buffer-replace'
 import colors from 'ansi-colors'
 import binstring from 'binstring'
 import { interval, debounce } from 'rxjs'
-import { PassThrough, Readable, Writable } from 'stream'
-import { ReadLine, createInterface as createReadline, clearLine } from 'readline'
 import { SessionMiddleware } from '../api/middleware'
 
 export type InputMode = null | 'local-echo' | 'readline' | 'readline-hex'
@@ -20,19 +18,12 @@ export interface StreamProcessingOptions {
 
 export class TerminalStreamProcessor extends SessionMiddleware {
     forceEcho = false
-    private inputReadline: ReadLine|null = null
     private inputPromptVisible = false
-    private inputReadlineInStream: Readable & Writable
-    private inputReadlineOutStream: Readable & Writable
+    private inputLineBuffer = ''
     private started = false
 
     constructor (private options: StreamProcessingOptions) {
         super()
-        this.inputReadlineInStream = new PassThrough()
-        this.inputReadlineOutStream = new PassThrough()
-        this.inputReadlineOutStream.on('data', data => {
-            this.outputToTerminal.next(Buffer.from(data))
-        })
         this.outputToTerminal$.pipe(debounce(() => interval(500))).subscribe(() => {
             if (this.started) {
                 this.onOutputSettled()
@@ -41,24 +32,13 @@ export class TerminalStreamProcessor extends SessionMiddleware {
     }
 
     start (): void {
-        this.inputReadline = createReadline({
-            input: this.inputReadlineInStream,
-            output: this.inputReadlineOutStream,
-            terminal: true,
-            prompt: this.options.inputMode === 'readline-hex' ? 'hex> ' : '> ',
-        })
-        this.inputReadline.on('line', line => {
-            this.onTerminalInput(Buffer.from(line + '\n'))
-            this.resetInputPrompt()
-        })
         this.started = true
     }
 
     feedFromSession (data: Buffer): void {
         if (this.options.inputMode?.startsWith('readline')) {
             if (this.inputPromptVisible) {
-                clearLine(this.inputReadlineOutStream, 0)
-                this.outputToTerminal.next(Buffer.from('\r'))
+                this.outputToTerminal.next(Buffer.from('\r\x1b[2K'))
                 this.inputPromptVisible = false
             }
         }
@@ -86,7 +66,7 @@ export class TerminalStreamProcessor extends SessionMiddleware {
             this.outputToTerminal.next(this.replaceNewlines(data, 'crlf'))
         }
         if (this.options.inputMode?.startsWith('readline')) {
-            this.inputReadlineInStream.write(data)
+            this.feedReadlineInput(data)
         } else {
             this.onTerminalInput(data)
         }
@@ -94,13 +74,36 @@ export class TerminalStreamProcessor extends SessionMiddleware {
 
     resize (): void {
         if (this.options.inputMode?.startsWith('readline')) {
-            this.inputReadlineOutStream.emit('resize')
+            this.redrawInputPrompt()
         }
     }
 
     close (): void {
-        this.inputReadline?.close()
+        this.inputLineBuffer = ''
         super.close()
+    }
+
+    private feedReadlineInput (data: Buffer): void {
+        for (const char of data.toString('utf-8')) {
+            if (char === '\r' || char === '\n') {
+                this.outputToTerminal.next(Buffer.from('\r\n'))
+                this.onTerminalInput(Buffer.from(this.inputLineBuffer + '\n'))
+                this.inputLineBuffer = ''
+                this.resetInputPrompt()
+            } else if (char === '\x7f' || char === '\b') {
+                if (this.inputLineBuffer.length) {
+                    this.inputLineBuffer = this.inputLineBuffer.slice(0, -1)
+                    this.outputToTerminal.next(Buffer.from('\b \b'))
+                }
+            } else if (char === '\x03') {
+                this.inputLineBuffer = ''
+                this.outputToTerminal.next(Buffer.from('^C'))
+                this.resetInputPrompt()
+            } else if (char >= ' ') {
+                this.inputLineBuffer += char
+                this.outputToTerminal.next(Buffer.from(char))
+            }
+        }
     }
 
     private onTerminalInput (data: Buffer) {
@@ -125,9 +128,18 @@ export class TerminalStreamProcessor extends SessionMiddleware {
     }
 
     private resetInputPrompt () {
-        this.outputToTerminal.next(Buffer.from('\r\n'))
-        this.inputReadline?.prompt(true)
+        this.outputToTerminal.next(Buffer.from('\r\n' + this.inputPrompt()))
         this.inputPromptVisible = true
+    }
+
+    private redrawInputPrompt (): void {
+        if (this.inputPromptVisible) {
+            this.outputToTerminal.next(Buffer.from('\r\x1b[2K' + this.inputPrompt() + this.inputLineBuffer))
+        }
+    }
+
+    private inputPrompt (): string {
+        return this.options.inputMode === 'readline-hex' ? 'hex> ' : '> '
     }
 
     private replaceNewlines (data: Buffer, mode?: NewlineMode): Buffer {

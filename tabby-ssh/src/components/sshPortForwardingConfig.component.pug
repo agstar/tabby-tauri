@@ -45,7 +45,8 @@ h5(translate) Add a port forward
             [(ngModel)]='newForward.type',
             id='newForwardTypeLocal',
             name='newForwardType',
-            [value]='PortForwardType.Local'
+            [value]='PortForwardType.Local',
+            [disabled]='!isForwardTypeSupported(PortForwardType.Local)'
         )
         label.btn.btn-secondary.m-0(
             for='newForwardTypeLocal',
@@ -56,7 +57,8 @@ h5(translate) Add a port forward
             [(ngModel)]='newForward.type',
             id='newForwardTypeRemote',
             name='newForwardType',
-            [value]='PortForwardType.Remote'
+            [value]='PortForwardType.Remote',
+            [disabled]='!isForwardTypeSupported(PortForwardType.Remote)'
         )
         label.btn.btn-secondary.m-0(
             for='newForwardTypeRemote',
@@ -67,7 +69,8 @@ h5(translate) Add a port forward
             [(ngModel)]='newForward.type',
             id='newForwardTypeDynamic',
             name='newForwardType',
-            [value]='PortForwardType.Dynamic'
+            [value]='PortForwardType.Dynamic',
+            [disabled]='!isForwardTypeSupported(PortForwardType.Dynamic)'
         )
         label.btn.btn-secondary.m-0(
             for='newForwardTypeDynamic',
@@ -75,6 +78,8 @@ h5(translate) Add a port forward
             translateContext='[Dynamic] port forwarding'
         ) id.port-forwarding.dynamic
 
-    button.btn.btn-primary((click)='addForward()')
+    button.btn.btn-primary((click)='addForward()', [disabled]='!isForwardTypeSupported(newForward.type)')
         i.fas.fa-check.me-2
         span(translate) Forward port
+
+.alert.alert-warning.mt-2(*ngIf='!isForwardTypeSupported(PortForwardType.Remote)', translate) Remote port forwarding is not available in the Tauri SSH provider yet

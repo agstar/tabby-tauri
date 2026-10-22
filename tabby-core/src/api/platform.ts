@@ -20,6 +20,24 @@ export interface MessageBoxResult {
     response: number
 }
 
+export interface PlatformPathMetadata {
+    path: string
+    name: string
+    size: number
+    mode: number
+    isDirectory: boolean
+}
+
+export interface PlatformTemporaryFile {
+    path: string
+    cleanup (): Promise<void>|void
+}
+
+export interface PlatformTemporaryFileOptions {
+    prefix?: string
+    suffix?: string
+}
+
 export abstract class FileTransfer {
     abstract getName (): string
     abstract getSize (): number
@@ -43,6 +61,10 @@ export abstract class FileTransfer {
 
     isComplete (): boolean {
         return !this.cancelled && (this.completed || this.completedBytes >= this.getSize())
+    }
+
+    isSuccessful (): boolean {
+        return this.completed && !this.cancelled
     }
 
     isCancelled (): boolean {
@@ -109,6 +131,7 @@ export abstract class FileUpload extends FileTransfer {
             result.set(buf, pos)
             pos += buf.length
         }
+        this.setCompleted(true)
         return result
     }
 }
@@ -139,8 +162,119 @@ export class DirectoryUpload {
 
 export type PlatformTheme = 'light'|'dark'
 
+export type WindowEffectName =
+    | 'mica'
+    | 'tabbed'
+    | 'tabbedDark'
+    | 'tabbedLight'
+    | 'blur'
+    | 'acrylic'
+
+export type CustomFrameStrategy =
+    | 'native'
+    | 'decorations-false-tauri-drag-region'
+    | 'manual-start-dragging'
+    | 'unsupported'
+
+export interface DisplayCapabilities {
+    windowEffects: {
+        supported: boolean
+        requiresTransparent: boolean
+        availableEffects: WindowEffectName[]
+        defaultFallbackOrder: WindowEffectName[]
+        performanceWarnings: string[]
+    }
+    opacity: {
+        supported: boolean
+        reason?: string
+    }
+    customFrame: {
+        supported: boolean
+        strategy: CustomFrameStrategy
+    }
+    nativeControls: {
+        minimize: boolean
+        maximize: boolean
+        close: boolean
+    }
+    draggableRegions: {
+        supported: boolean
+        directElementOnly: boolean
+    }
+    windowStateEvents: {
+        fullscreen: boolean
+        maximized: boolean
+        focused: boolean
+        closeRequested: boolean
+        moved: boolean
+    }
+    monitors: {
+        supported: boolean
+    }
+    fonts: {
+        listFonts: boolean
+        defaultFont: string
+        fallbackFonts: string[]
+        degradedReason?: string
+    }
+    docking: {
+        supported: boolean
+        reason?: string
+    }
+}
+
+export function createDefaultDisplayCapabilities (): DisplayCapabilities {
+    return {
+        windowEffects: {
+            supported: false,
+            requiresTransparent: false,
+            availableEffects: [],
+            defaultFallbackOrder: [],
+            performanceWarnings: [],
+        },
+        opacity: {
+            supported: false,
+            reason: 'Platform does not expose window opacity controls',
+        },
+        customFrame: {
+            supported: false,
+            strategy: 'unsupported',
+        },
+        nativeControls: {
+            minimize: false,
+            maximize: false,
+            close: false,
+        },
+        draggableRegions: {
+            supported: false,
+            directElementOnly: false,
+        },
+        windowStateEvents: {
+            fullscreen: false,
+            maximized: false,
+            focused: false,
+            closeRequested: false,
+            moved: false,
+        },
+        monitors: {
+            supported: false,
+        },
+        fonts: {
+            listFonts: false,
+            defaultFont: 'monospace',
+            fallbackFonts: ['monospace'],
+            degradedReason: 'Platform does not expose native font enumeration',
+        },
+        docking: {
+            supported: false,
+            reason: 'Platform does not expose docked-window placement',
+        },
+    }
+}
+
 export abstract class PlatformService {
     supportsWindowControls = false
+    displayCapabilities = createDefaultDisplayCapabilities()
 
     get fileTransferStarted$ (): Observable<FileTransfer> { return this.fileTransferStarted }
     get displayMetricsChanged$ (): Observable<void> { return this.displayMetricsChanged }
@@ -150,7 +284,7 @@ export abstract class PlatformService {
     protected displayMetricsChanged = new Subject<void>()
     protected themeChanged = new Subject<PlatformTheme>()
 
-    abstract readClipboard (): string
+    abstract readClipboard (): string|Promise<string>
     abstract setClipboard (content: ClipboardContent): void
     abstract loadConfig (): Promise<string>
     abstract saveConfig (content: string): Promise<void>
@@ -210,6 +344,23 @@ export abstract class PlatformService {
 
     getConfigPath (): string|null {
         return null
+    }
+
+    async statPath (_path: string): Promise<PlatformPathMetadata|null> {
+        return null
+    }
+
+    async pathExists (path: string): Promise<boolean> {
+        return !!await this.statPath(path)
+    }
+
+    async realpath (path: string): Promise<string|null> {
+        const metadata = await this.statPath(path)
+        return metadata ? path : null
+    }
+
+    async createTemporaryTextFile (_content: string, _options: PlatformTemporaryFileOptions = {}): Promise<PlatformTemporaryFile> {
+        throw new Error('Not implemented')
     }
 
     showItemInFolder (path: string): void {

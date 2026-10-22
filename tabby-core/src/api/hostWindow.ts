@@ -33,4 +33,11 @@ export abstract class HostWindowService {
 
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     bringToFront (): void { }
+
+    /**
+     * If true, closeWindow() will skip tab destruction and call close() directly.
+     * The host is responsible for terminating the process; tabs will be restored
+     * from tabRecovery on next launch.
+     */
+    get supportsDirectQuit (): boolean { return false }
 }

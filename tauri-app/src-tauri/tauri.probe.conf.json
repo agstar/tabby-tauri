@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tabby Tauri Synthetic Probe",
+  "identifier": "io.github.tabby.tauri-probe",
+  "build": {
+    "beforeDevCommand": "npm run check:no-electron && npm run dev:web:probe -- --host 127.0.0.1",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": null
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "probe",
+        "title": "Tabby Tauri Synthetic Probe",
+        "width": 1024,
+        "height": 720,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  }
+}

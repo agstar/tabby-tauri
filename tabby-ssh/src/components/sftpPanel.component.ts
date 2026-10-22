@@ -1,12 +1,52 @@
-import * as C from 'constants'
-import { posix as path } from 'path'
 import { Component, Input, Output, EventEmitter, Inject, Optional } from '@angular/core'
 import { FileUpload, DirectoryUpload, DirectoryDownload, MenuItemOptions, NotificationsService, PlatformService } from 'tabby-core'
-import { SFTPSession, SFTPFile } from '../session/sftp'
-import { SSHSession } from '../session/ssh'
+import { SFTPSession, SFTPFile, SSHConnectionLike } from '../session/types'
 import { SFTPContextMenuItemProvider } from '../api'
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap'
 import { SFTPCreateDirectoryModalComponent } from './sftpCreateDirectoryModal.component'
+
+const S_IFDIR = 0o040000
+const S_IRUSR = 0o400
+const S_IWUSR = 0o200
+const S_IXUSR = 0o100
+const S_IRGRP = 0o040
+const S_IWGRP = 0o020
+const S_IXGRP = 0o010
+const S_IROTH = 0o004
+const S_IWOTH = 0o002
+const S_IXOTH = 0o001
+
+function sftpBasename (p: string): string {
+    return p.replace(/\/+$/, '').split('/').filter(Boolean).pop() ?? '/'
+}
+
+function sftpDirname (p: string): string {
+    const normalized = p.replace(/\/+$/, '')
+    const index = normalized.lastIndexOf('/')
+    return index <= 0 ? '/' : normalized.slice(0, index)
+}
+
+function sftpJoin (...parts: string[]): string {
+    const absolute = parts[0]?.startsWith('/')
+    const joined = parts.flatMap(part => part.split('/')).filter(Boolean).join('/')
+    return (absolute ? '/' : '') + joined
+}
+
+function sftpResolve (base: string, target: string): string {
+    const raw = target.startsWith('/') ? target : sftpJoin(base, target)
+    const segments: string[] = []
+    for (const segment of raw.split('/')) {
+        if (!segment || segment === '.') {
+            continue
+        }
+        if (segment === '..') {
+            segments.pop()
+        } else {
+            segments.push(segment)
+        }
+    }
+    return '/' + segments.join('/')
+}
 
 interface PathSegment {
     name: string
@@ -19,7 +59,7 @@ interface PathSegment {
     styleUrls: ['./sftpPanel.component.scss'],
 })
 export class SFTPPanelComponent {
-    @Input() session: SSHSession
+    @Input() session: SSHConnectionLike
     @Output() closed = new EventEmitter<void>()
     sftp: SFTPSession
     fileList: SFTPFile[]|null = null
@@ -44,12 +84,19 @@ export class SFTPPanelComponent {
     async ngOnInit (): Promise<void> {
         this.sftp = await this.session.openSFTP()
         try {
-            await this.navigate(this.path)
+            await this.navigate(await this.getInitialPath())
         } catch (error) {
             console.warn('Could not navigate to', this.path, ':', error)
             this.notifications.error(error.message)
             await this.navigate('/')
         }
+    }
+
+    private async getInitialPath (): Promise<string> {
+        if (!this.cwdDetectionAvailable && this.path === '/') {
+            return await this.sftp.realpath('.')
+        }
+        return this.path
     }
 
     async navigate (newPath: string, fallbackOnError = true): Promise<void> {
@@ -63,14 +110,10 @@ export class SFTPPanelComponent {
         this.pathSegments = []
         while (p !== '/' && p !== '.') {
             this.pathSegments.unshift({
-                name: path.basename(p),
+                name: sftpBasename(p),
                 path: p,
             })
-            const parent = path.dirname(p)
-            if (parent === p) {
-                break
-            }
-            p = parent
+            p = sftpDirname(p)
         }
 
         this.fileList = null
@@ -142,7 +185,7 @@ export class SFTPPanelComponent {
         const fileMatch = /\.([^.]+)$/.exec(item.name)
         const extension = fileMatch ? fileMatch[1] : null
         if (extension !== null) {
-            const fileType = this.getFileType(extension)
+            const fileType = item.fileType ?? this.getFileType(extension)
 
             switch (fileType) {
                 case 'unknown':
@@ -155,14 +198,14 @@ export class SFTPPanelComponent {
     }
 
     goUp (): void {
-        this.navigate(path.dirname(this.path))
+        this.navigate(sftpDirname(this.path))
     }
 
     async open (item: SFTPFile): Promise<void> {
         if (item.isDirectory) {
             await this.navigate(item.fullPath)
         } else if (item.isSymlink) {
-            const target = path.resolve(this.path, await this.sftp.readlink(item.fullPath))
+            const target = sftpResolve(this.path, await this.sftp.readlink(item.fullPath))
             const stat = await this.sftp.stat(target)
             if (stat.isDirectory) {
                 await this.navigate(item.fullPath)
@@ -181,7 +224,7 @@ export class SFTPPanelComponent {
         }
 
         if (item.isSymlink) {
-            const target = path.resolve(this.path, await this.sftp.readlink(item.fullPath))
+            const target = sftpResolve(this.path, await this.sftp.readlink(item.fullPath))
             const stat = await this.sftp.stat(target)
             if (stat.isDirectory) {
                 await this.downloadFolder(item)
@@ -198,9 +241,9 @@ export class SFTPPanelComponent {
         const modal = this.ngbModal.open(SFTPCreateDirectoryModalComponent)
         const directoryName = await modal.result.catch(() => null)
         if (directoryName?.trim()) {
-            this.sftp.mkdir(path.join(this.path, directoryName)).then(() => {
+            this.sftp.mkdir(sftpJoin(this.path, directoryName)).then(() => {
                 this.notifications.notice('The directory was created successfully')
-                this.navigate(path.join(this.path, directoryName))
+                this.navigate(sftpJoin(this.path, directoryName))
             }).catch(() => {
                 this.notifications.error('The directory could not be created')
             })
@@ -222,13 +265,13 @@ export class SFTPPanelComponent {
         for(const t of transfer.getChildrens()) {
             if (t instanceof DirectoryUpload) {
                 try {
-                    await this.sftp.mkdir(path.posix.join(this.path, accumPath, t.getName()))
+                    await this.sftp.mkdir(sftpJoin(this.path, accumPath, t.getName()))
                 } catch {
                     // Intentionally ignoring errors from making duplicate dirs.
                 }
-                await this.uploadOneFolder(t, path.posix.join(accumPath, t.getName()))
+                await this.uploadOneFolder(t, sftpJoin(accumPath, t.getName()))
             } else {
-                await this.sftp.upload(path.posix.join(this.path, accumPath, t.getName()), t)
+                await this.sftp.upload(sftpJoin(this.path, accumPath, t.getName()), t)
             }
         }
         if (this.path === savedPath) {
@@ -238,14 +281,14 @@ export class SFTPPanelComponent {
 
     async uploadOne (transfer: FileUpload): Promise<void> {
         const savedPath = this.path
-        await this.sftp.upload(path.join(this.path, transfer.getName()), transfer)
+        await this.sftp.upload(sftpJoin(this.path, transfer.getName()), transfer)
         if (this.path === savedPath) {
             await this.navigate(this.path)
         }
     }
 
     async download (itemPath: string, mode: number, size: number): Promise<void> {
-        const transfer = await this.platform.startDownload(path.basename(itemPath), mode, size)
+        const transfer = await this.platform.startDownload(sftpBasename(itemPath), mode, size)
         if (!transfer) {
             return
         }
@@ -259,12 +302,15 @@ export class SFTPPanelComponent {
                 return
             }
 
-            // Start background size calculation and download simultaneously
-            const sizeCalculationPromise = this.calculateFolderSizeAndUpdate(folder, transfer)
-            const downloadPromise = this.downloadFolderRecursive(folder, transfer, '')
-
             try {
-                await Promise.all([sizeCalculationPromise, downloadPromise])
+                if (this.sftp.directoryPlan) {
+                    await this.downloadFolderWithPlan(folder, transfer)
+                } else {
+                    // Start background size calculation and download simultaneously
+                    const sizeCalculationPromise = this.calculateFolderSizeAndUpdate(folder, transfer)
+                    const downloadPromise = this.downloadFolderRecursive(folder, transfer, '')
+                    await Promise.all([sizeCalculationPromise, downloadPromise])
+                }
                 transfer.setStatus('')
                 transfer.setCompleted(true)
             } catch (error) {
@@ -276,6 +322,24 @@ export class SFTPPanelComponent {
         } catch (error) {
             this.notifications.error(`Failed to download folder: ${error.message}`)
             throw error
+        }
+    }
+
+    private async downloadFolderWithPlan (folder: SFTPFile, transfer: DirectoryDownload): Promise<void> {
+        const plan = await this.sftp.directoryPlan!(folder.fullPath)
+        transfer.setTotalSize(plan.totalSize)
+        for (const item of plan.entries) {
+            if (transfer.isCancelled()) {
+                throw new Error('Download cancelled')
+            }
+
+            transfer.setStatus(item.relativePath)
+            if (item.isDirectory) {
+                await transfer.createDirectory(item.relativePath)
+            } else {
+                const fileDownload = await transfer.createFile(item.relativePath, item.mode, item.size)
+                await this.sftp.download(item.path, fileDownload)
+            }
         }
     }
 
@@ -318,10 +382,10 @@ export class SFTPPanelComponent {
         const s = 'SGdrwxrwxrwx'
         const e = '   ---------'
         const c = [
-            0o4000, 0o2000, C.S_IFDIR,
-            C.S_IRUSR, C.S_IWUSR, C.S_IXUSR,
-            C.S_IRGRP, C.S_IWGRP, C.S_IXGRP,
-            C.S_IROTH, C.S_IWOTH, C.S_IXOTH,
+            0o4000, 0o2000, S_IFDIR,
+            S_IRUSR, S_IWUSR, S_IXUSR,
+            S_IRGRP, S_IWGRP, S_IXGRP,
+            S_IROTH, S_IWOTH, S_IXOTH,
         ]
         let result = ''
         for (let i = 0; i < c.length; i++) {
@@ -348,7 +412,9 @@ export class SFTPPanelComponent {
         return !window.localStorage.sshCWDTipDismissed
     }
 
-    dismissCWDTip (): void {
+    dismissCWDTip (event?: MouseEvent): void {
+        event?.preventDefault()
+        event?.stopPropagation()
         window.localStorage.sshCWDTipDismissed = 'true'
     }
 

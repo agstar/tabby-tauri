@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, ChangeDetectionStrategy, OnInit, ChangeDetectorRef } from '@angular/core'
-import { KeyboardInteractivePrompt } from '../session/ssh'
+import { KeyboardInteractivePrompt } from '../session/types'
 import { SSHProfile } from '../api'
 import { PasswordStorageService } from '../services/passwordStorage.service'
 
@@ -61,5 +61,10 @@ export class KeyboardInteractiveAuthComponent implements OnInit {
         }
         this.step++
         this.input.nativeElement.focus()
+    }
+
+    cancel (): void {
+        this.prompt.reject()
+        this.done.emit()
     }
 }

@@ -85,7 +85,7 @@ export class AppRootComponent {
         public hostApp: HostAppService,
         public config: ConfigService,
         public app: AppService,
-        platform: PlatformService,
+        public platform: PlatformService,
         log: LogService,
         ngbModal: NgbModal,
         _themes: ThemesService,
@@ -175,6 +175,7 @@ export class AppRootComponent {
             this.unsortedTabs.push(tab)
             this.noTabs = false
             this.app.emitTabDragEnded()
+            void this.refreshToolbarButtons()
         })
 
         this.app.tabRemoved$.subscribe(tab => {
@@ -186,6 +187,15 @@ export class AppRootComponent {
             this.unsortedTabs = this.unsortedTabs.filter(x => x !== tab)
             this.noTabs = app.tabs.length === 0
             this.app.emitTabDragEnded()
+            void this.refreshToolbarButtons()
+        })
+
+        this.app.activeTabChange$.subscribe(() => {
+            void this.refreshToolbarButtons()
+        })
+
+        this.app.tabsChanged$.subscribe(() => {
+            void this.refreshToolbarButtons()
         })
 
         platform.fileTransferStarted$.subscribe(transfer => {
@@ -194,11 +204,10 @@ export class AppRootComponent {
         })
 
         config.ready$.toPromise().then(async () => {
-            this.leftToolbarButtons = await this.getToolbarButtons(false)
-            this.rightToolbarButtons = await this.getToolbarButtons(true)
+            await this.refreshToolbarButtons()
 
             setInterval(() => {
-                if (this.config.store.enableAutomaticUpdates) {
+                if (this.updater.isAvailable && this.config.store.enableAutomaticUpdates) {
                     this.updater.check().then(available => {
                         this.updatesAvailable = available
                     })
@@ -250,6 +259,24 @@ export class AppRootComponent {
         return this.config.store.appearance.flexTabs ? '*' : '200px'
     }
 
+    get hasTauriFramelessWindowControls (): boolean {
+        return this.platform.supportsWindowControls
+            && this.platform.displayCapabilities.customFrame.strategy === 'decorations-false-tauri-drag-region'
+    }
+
+    get shouldUseTauriNativeDragRegions (): boolean {
+        return this.hasTauriFramelessWindowControls
+            && this.platform.displayCapabilities.draggableRegions.supported
+    }
+
+    get shouldShowTabBarWindowControls (): boolean {
+        return this.hostApp.platform === Platform.Linux || this.hasTauriFramelessWindowControls
+    }
+
+    get shouldShowNativeWindowControlsSpacer (): boolean {
+        return this.hostApp.platform === Platform.Windows && !this.hasTauriFramelessWindowControls
+    }
+
     onTabsReordered (event: CdkDragDrop<BaseTabComponent[]>) {
         const tab: BaseTabComponent = event.item.data
         if (!this.app.tabs.includes(tab)) {
@@ -274,6 +301,11 @@ export class AppRootComponent {
     private async getToolbarButtons (aboveZero: boolean): Promise<Command[]> {
         return (await this.commands.getCommands({ tab: this.app.activeTab ?? undefined }))
             .filter(x => x.locations?.includes(aboveZero ? CommandLocation.RightToolbar : CommandLocation.LeftToolbar))
+    }
+
+    private async refreshToolbarButtons (): Promise<void> {
+        this.leftToolbarButtons = await this.getToolbarButtons(false)
+        this.rightToolbarButtons = await this.getToolbarButtons(true)
     }
 
     toggleMaximize (): void {

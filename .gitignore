@@ -2,6 +2,9 @@ app/node_modules
 app/assets/webpack
 
 node_modules
+tauri-app/src-tauri/target
+tauri-app/.tmp-providers-*
+tauri-app/.omx
 
 build/files.wxs
 dist

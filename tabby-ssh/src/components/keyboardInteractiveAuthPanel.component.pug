@@ -23,6 +23,11 @@ input.form-control.mt-2(
     .ms-auto
 
     button.btn.btn-secondary.me-3(
+        (click)='cancel()'
+    )
+        span(translate) Cancel
+
+    button.btn.btn-secondary.me-3(
         *ngIf='step > 0',
         (click)='previous()'
     )

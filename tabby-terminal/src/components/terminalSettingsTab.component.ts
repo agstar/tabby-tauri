@@ -20,6 +20,5 @@ export class TerminalSettingsTabComponent {
 
     openWSLVolumeMixer (): void {
         this.platform.openPath('sndvol.exe')
-        this.platform.exec('wsl.exe', ['tput', 'bel'])
     }
 }

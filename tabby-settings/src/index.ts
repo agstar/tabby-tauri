@@ -20,6 +20,7 @@ import { ProfilesSettingsTabComponent } from './components/profilesSettingsTab.c
 import { ReleaseNotesComponent } from './components/releaseNotesTab.component'
 import { ConfigSyncSettingsTabComponent } from './components/configSyncSettingsTab.component'
 import { ShowSecretModalComponent } from './components/showSecretModal.component'
+import { OneKeySettingsTabComponent } from './components/oneKeySettingsTab.component'
 
 import { ConfigSyncService } from './services/configSync.service'
 
@@ -27,7 +28,7 @@ import { SettingsTabProvider } from './api'
 import { ButtonProvider } from './buttonProvider'
 import { SettingsHotkeyProvider } from './hotkeys'
 import { SettingsConfigProvider } from './config'
-import { HotkeySettingsTabProvider, WindowSettingsTabProvider, VaultSettingsTabProvider, ProfilesSettingsTabProvider, ConfigSyncSettingsTabProvider } from './settings'
+import { HotkeySettingsTabProvider, WindowSettingsTabProvider, VaultSettingsTabProvider, ProfilesSettingsTabProvider, OneKeySettingsTabProvider, ConfigSyncSettingsTabProvider } from './settings'
 
 /** @hidden */
 @NgModule({
@@ -46,6 +47,7 @@ import { HotkeySettingsTabProvider, WindowSettingsTabProvider, VaultSettingsTabP
         { provide: SettingsTabProvider, useClass: WindowSettingsTabProvider, multi: true },
         { provide: SettingsTabProvider, useClass: VaultSettingsTabProvider, multi: true },
         { provide: SettingsTabProvider, useClass: ProfilesSettingsTabProvider, multi: true },
+        { provide: SettingsTabProvider, useClass: OneKeySettingsTabProvider, multi: true },
         { provide: SettingsTabProvider, useClass: ConfigSyncSettingsTabProvider, multi: true },
     ],
     declarations: [
@@ -61,6 +63,7 @@ import { HotkeySettingsTabProvider, WindowSettingsTabProvider, VaultSettingsTabP
         VaultSettingsTabComponent,
         WindowSettingsTabComponent,
         ConfigSyncSettingsTabComponent,
+        OneKeySettingsTabComponent,
         ReleaseNotesComponent,
         ShowSecretModalComponent,
     ],

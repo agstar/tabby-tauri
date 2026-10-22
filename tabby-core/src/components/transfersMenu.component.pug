@@ -8,16 +8,24 @@
         label.no-wrap([ngbTooltip]='transfer.getName()')
             | {{transfer.getName()}}
             span.ms-2.text-muted(*ngIf='transfer.getStatus()') ({{transfer.getStatus()}})
-        ngb-progressbar([type]='transfer.isComplete() ? "success" : transfer.isCancelled() ? "danger" : "info"', [value]='getProgress(transfer)')
+        ngb-progressbar([type]='transfer.isCancelled() ? "danger" : transfer.isSuccessful() ? "success" : "info"', [value]='getProgress(transfer)')
         .metadata
             .size {{transfer.getSize()|filesize}}
+            .state
+                span(*ngIf='transfer.isCancelled()', translate) Failed
+                span(*ngIf='transfer.isSuccessful()', translate) Completed
+                span(*ngIf='!transfer.isCancelled() && !transfer.isSuccessful()') {{getProgress(transfer)}}%
             .speed(*ngIf='transfer.getSpeed()') {{transfer.getSpeed()|filesize}}/s
 
     button.btn.btn-link(
-        *ngIf='!transfer.isComplete()',
+        *ngIf='!transfer.isSuccessful() && !transfer.isCancelled()',
         (click)='removeTransfer(transfer); $event.stopPropagation()'
     ) !{require('../icons/times.svg')}
     button.btn.btn-link(
-        *ngIf='transfer.isComplete()',
+        *ngIf='transfer.isSuccessful()',
         (click)='removeTransfer(transfer); $event.stopPropagation()'
     ) !{require('../icons/check.svg')}
+    button.btn.btn-link(
+        *ngIf='transfer.isCancelled()',
+        (click)='removeTransfer(transfer); $event.stopPropagation()'
+    ) !{require('../icons/times.svg')}

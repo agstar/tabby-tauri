@@ -1,40 +1,16 @@
 import { Socket, SocketConnectOpts } from 'net'
 import { Subject } from 'rxjs'
+import { resolveX11DisplaySpec } from './x11Display'
 
 export class X11Socket {
     error$ = new Subject<Error>()
     private socket: Socket | null = null
 
     static resolveDisplaySpec (spec?: string|null): SocketConnectOpts {
-        // eslint-disable-next-line prefer-const, @typescript-eslint/no-unused-vars
-        let [_, xHost, xDisplay] = /^(.+):(\d+)(?:.(\d+))$/.exec(spec ?? process.env.DISPLAY ?? 'localhost:0') ?? [undefined, undefined, undefined]
-        if (process.platform === 'win32') {
-            xHost ??= 'localhost'
-        } else {
-            xHost ??= 'unix'
-        }
-
-        if (spec?.startsWith('/')) {
-            xHost = spec
-        }
-
-        const display = parseInt(xDisplay ?? '0')
-        const port = display < 100 ? display + 6000 : display
-
-        if (xHost === 'unix') {
-            xHost = `/tmp/.X11-unix/X${display}`
-        }
-
-        if (xHost.startsWith('/')) {
-            return {
-                path: xHost,
-            }
-        } else {
-            return {
-                host: xHost,
-                port: port,
-            }
-        }
+        return resolveX11DisplaySpec(spec, {
+            displayEnv: process.env.DISPLAY,
+            isWindows: process.platform === 'win32',
+        }) as SocketConnectOpts
     }
 
     connect (spec: string): Promise<Socket> {

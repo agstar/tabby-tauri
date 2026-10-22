@@ -5,6 +5,7 @@ import { WindowSettingsTabComponent } from './components/windowSettingsTab.compo
 import { VaultSettingsTabComponent } from './components/vaultSettingsTab.component'
 import { ConfigSyncSettingsTabComponent } from './components/configSyncSettingsTab.component'
 import { ProfilesSettingsTabComponent } from './components/profilesSettingsTab.component'
+import { OneKeySettingsTabComponent } from './components/oneKeySettingsTab.component'
 import { TranslateService } from 'tabby-core'
 
 /** @hidden */
@@ -62,6 +63,19 @@ export class ProfilesSettingsTabProvider extends SettingsTabProvider {
 
     getComponentType (): any {
         return ProfilesSettingsTabComponent
+    }
+}
+
+/** @hidden */
+@Injectable()
+export class OneKeySettingsTabProvider extends SettingsTabProvider {
+    id = 'onekey'
+    icon = 'key'
+    title = 'OneKey'
+    prioritized = true
+
+    getComponentType (): any {
+        return OneKeySettingsTabComponent
     }
 }
 

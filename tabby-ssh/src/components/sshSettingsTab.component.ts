@@ -1,5 +1,5 @@
 import { Component, HostBinding } from '@angular/core'
-import { X11Socket } from '../session/x11'
+import { resolveX11DisplaySpec } from '../session/x11Display'
 import { ConfigService, HostAppService, Platform } from 'tabby-core'
 
 /** @hidden */
@@ -16,11 +16,11 @@ export class SSHSettingsTabComponent {
         public config: ConfigService,
         public hostApp: HostAppService,
     ) {
-        const spec = X11Socket.resolveDisplaySpec()
-        if ('path' in spec) {
+        const spec = resolveX11DisplaySpec(null, { isWindows: hostApp.platform === Platform.Windows })
+        if (spec.path) {
             this.defaultX11Display = spec.path
         } else {
-            this.defaultX11Display = `${spec.host}:${spec.port}`
+            this.defaultX11Display = `${spec.host ?? 'localhost'}:${spec.port ?? 6000}`
         }
     }
 }

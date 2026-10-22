@@ -1,4 +1,3 @@
-import * as os from 'os'
 import { Subject, Observable } from 'rxjs'
 import { SessionMiddleware } from '../api/middleware'
 
@@ -68,7 +67,10 @@ export class OSCProcessor extends SessionMiddleware {
                 if (paramString.startsWith('CurrentDir=')) {
                     let reportedCWD = paramString.split('=', 2)[1]
                     if (reportedCWD.startsWith('~')) {
-                        reportedCWD = os.homedir() + reportedCWD.substring(1)
+                        const home = process.env.HOME ?? process.env.USERPROFILE
+                        if (home) {
+                            reportedCWD = home + reportedCWD.substring(1)
+                        }
                     }
                     this.cwdReported.next(reportedCWD)
                 } else {

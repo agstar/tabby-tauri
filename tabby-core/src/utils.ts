@@ -1,4 +1,3 @@
-import * as os from 'os'
 import { NgZone } from '@angular/core'
 import { marker as _ } from '@biesbjerg/ngx-translate-extract-marker'
 
@@ -10,7 +9,9 @@ export const WIN_BUILD_WSL_EXE_DISTRO_FLAG = 17763
 export const WIN_BUILD_FLUENT_BG_SUPPORTED = 17063
 
 export function getWindows10Build (): number|undefined {
-    return process.platform === 'win32' && parseFloat(os.release()) >= 10 ? parseInt(os.release().split('.')[2]) : undefined
+    const release = process.env.TABBY_OS_RELEASE ?? (typeof (process as any).getSystemVersion === 'function' ? (process as any).getSystemVersion() : '')
+    const build = parseInt(release.split('.')[2])
+    return process.platform === 'win32' && parseFloat(release) >= 10 && Number.isFinite(build) ? build : undefined
 }
 
 export function isWindowsBuild (build: number): boolean {
